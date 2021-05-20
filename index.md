@@ -1,11 +1,14 @@
 June 1, 2021
 
 <dl>
-<dt>Project Team:</dt>
-<dd>Nicholas Miller (nmill@umich.edu) and Tim Chen (ttcchen@umich.edu)</dd>
+<dt>Project Team</dt>
+<dd>Nicholas Miller* (nmill@umich.edu)</dd>
+<dd>Tim Chen* (ttcchen@umich.edu)</dd>
 <dt>Github Repository</dt>
 <dd><a href='https://github.com/cm-tle-pred/tle-prediction'>https://github.com/cm-tle-pred/tle-prediction</a></dd>
 </dl>
+
+\* equal contribution
 
 # Table of Contents
 <!-- TOC depthFrom:1 depthTo:3 withLinks:1 updateOnSave:1 orderedList:0 -->
@@ -99,7 +102,7 @@ To accomplish this, we created a machine learning pipeline that takes in a TLE d
 <dd>Data split strategy</dd>
 <dd>Feature Engineering</dd>
 <dd>Initial neural network models</dd>
-<dd>Supervised ResNet28 model</dd>
+<dd>Deep learning ResNet28 model</dd>
 <dd>Training and Evaluation</dd>
 <dd>Final Report</dd>
 <dt>Tim Chen</dt>
