@@ -18,7 +18,7 @@ June 1, 2021
 - [Supervised Learning](#supervised-learning)
 	- [Supervised Learning Methods](#supervised-learning-methods)
 		- [Workflow and Learning Methods](#workflow-and-learning-methods)
-		- [Model Tuning](#model-tuning)
+		- [Model and Feature Tuning](#model-and-feature-tuning)
 		- [Challenges and Solutions](#challenges-and-solutions)
 	- [Evaluation](#evaluation)
 	- [Failure Analysis](#failure-analysis)
@@ -29,11 +29,13 @@ June 1, 2021
 	- [Unsupervised Evaluation](#unsupervised-evaluation)
 - [Discussion](#discussion)
 - [Statement of Work](#statement-of-work)
+	- [Thank You](#thank-you)
 - [Appendix](#appendix)
 	- [A. What is a TLE?](#a-what-is-a-tle)
 	- [B. Building the X-inputs and y-outputs](#b-building-the-x-inputs-and-y-outputs)
 	- [C. Simple Neural Network Investigation](#c-simple-neural-network-investigation)
-	- [D. Models Learning Data shape](#d-models-learning-data-shape)
+	- [D. Models Learning Data Shape](#d-models-learning-data-shape)
+	- [E. Model Evaluation of Loss for N Models](#e-model-evaluation-of-loss-for-n-models)
 
 <!-- /TOC -->
 
@@ -97,16 +99,20 @@ To prepare the inputs and outputs for training, they were generally normalized e
 
 
 [Back to Top](#table-of-contents)
-#### Models
-Pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with varying number of hidden layers and width were created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a ResNet28 model and a Bilinear model.
+### Model and Feature Tuning
+Pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with varying number of hidden layers and width were created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on a paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).  A Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name.
 
-### Model Tuning
 To get a feel for how a model would train and could be evaluated, the simple fully-connected neural network with only one hidden layer was trained and hyperparameters were tuned.  Due to the size of the training set, a subset of the training set was also used.  During this investigation, changes to data filtering were made to eliminate the training on bad data.  See Appendix [C. Simple Neural Network Investigation](#c-simple-neural-network-investigation) for further details.
 
-In later models, SGD and AdamW optimizers were experimented with.  AdamW resulted in faster learning so was generally preferred.  Understanding the AdamW doesn't generalize as well as SGD, we relied on our volume of data and utilizing dropout for generalizing and never ran into issues with overfiitting.  At this stage, the models were showing some progress in capturing the shape of the data.  See Appendix
+In later models, SGD and AdamW optimizers were experimented with.  AdamW resulted in faster learning so was generally preferred.  Understanding the AdamW doesn't generalize as well as SGD, we relied on our volume of data and utilizing dropout for generalizing and never ran into issues with overfiitting.  At this stage, the models were starting to show some progress in capturing the shape of the data.  See Appendix [D. Models Learning Data Shape](#d-models-learning-data-shape).  To see how performance could be further improved, separate models were trained for each output feature.  This resulted in better capture of data shape.
+
+During training, error was monitored and corrections were made to the learning rate to prevent overfitting and decrease model training times.  This required the saving of models and evaluating at each epoch and then restoring models to previous versions when training went awry.
 
 
+[Back to Top](#table-of-contents)
 ### Challenges and Solutions
+Our biggest challenge was a vanishing gradient where our models loss would exponentially decay.  To address this problem, we would first look at tuning the learning rate.  We then explored different model architectures: deeper and narrower, shallower and wider, bilinear and ResNet28.  After reading [Loshchilov & Hutter's paper "Decoupled Weight Decay Regularization"](https://arxiv.org/abs/1711.05101), we explorered different optimizers and mostly settling on AdamW while always circling back to turning other hyperparameters like learning rate and model architecture.  We also had some success using the OneCycle scheduler that increases and then decreases the learning rate over each batch introduced by [Smith L. & Topin N. in their 2018 paper "Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates"](https://arxiv.org/abs/1708.07120).
+
 
 ## Evaluation
 > * Provide a correct and comprehensive evaluation, analyzing the effectiveness of both your methods, and your feature representations. Methods include e.g. ablation tests to identify important features, hyperparameter sensitivity, and training data curves. This should be done for each learning framework and representation choice, together with a valid and effective comparison between the chosen approaches.
@@ -117,11 +123,18 @@ In later models, SGD and AdamW optimizers were experimented with.  AdamW resulte
 *Mean square error on the baseline models’ predictions will be used as benchmarks for evaluation.  We will also consider using a custom loss function on predicted spatial x, y, z positions.  To visualize the model's effectiveness, we can plot propagated satellite positions using the SGP4, our baseline models, the DNN model against the true dataset (other TLEs) together in 3D.  Visualizing the errors for the models based on individual feature variances will also show where the strengths and weaknesses of the models lie.*
 
 ---
+The model evaluations took place on two different sets of training data that were assembled differently based on the raw training data.  In one approach, we'll call the `N` models, each TLE input was paired with a random TLE output for the same satellite.  This resulted in two TLEs (an input and an output) that would have a random time difference between them spanning days, weeks or even years apart.  In another approach, we'll call the `T` models, each TLE input for a satellite was paired with its sisters resulting in a larger training set but then reduced by limiting their time difference to 14 days.  See Appendix [B. Building the X-inputs and y-outputSize](#b-building-the-x-inputs-and-y-outputs) for more details.
+
+The `N` models, while showing signs that convergence, converged much less quickly than the `T` models.  During this time, it was established that the training loss necessary to compete with the SGP4 propigation model needed to be on an order of `1e-8` or smaller.  The `N` and `T` models were changed so that separate models would be trained for each output feature.  The `N` models did show some major improvement but not at the level of the `T` models.  For more details, please see Appendix [E. Model Evaluation of Loss for N Models](#e-model-evaluation-of-loss-for-n-models).
+
+
+
+
 
 
 ## Failure Analysis
 > * Select three examples where prediction failed, and analyse why. You should be able to find at least three different types of failure.
-
+Talk here about copying X values
 
 # Unsupevised Learning
 *Due to the impact of bad TLE data on the supervised learning models, we want to use unsupervised learning to remove these abnormal data from the dataset before training the data.*
@@ -178,6 +191,17 @@ In later models, SGD and AdamW optimizers were experimented with.  AdamW resulte
 <dd>Training and Evaluation</dd>
 <dd>Final Report</dd>
 </dl>
+
+## Thank You
+We would like to extend a special thank you to the following people who went above and beyond to help us with this project.
+
+**Professor Christopher Brooks**
+
+> Thank you Chris for kindly making available your personal high computing resources, Nellodee, for this project.  This proved to be instrumental in the handling this massive dataset and for allowing us to run models 24hr while utilizing ungodly amounts of RAM.
+
+**Professor Patrick Seitzer**
+
+> Thank you Pat for your patence in helping us understand orbital mechnanics and your guidance on our AMOS conference submission.
 
 # Appendix
 
@@ -306,11 +330,47 @@ class NNModelEx(nn.Module):
 
 
 [Back to Top](#table-of-contents)
-## D. Models Learning Data shape
+## D. Models Learning Data Shape
 
-For the satellite NORAD 10839, the Mean Motion and Right Ascension of the Ascending Node are starting to take shape.
+For the satellite NORAD 10839, the Mean Motion and Right Ascension of the Ascending Node are starting to take shape.  This earlier model did not convert some cyclical features resulting in the sawtooth ground truths.  Later models converted these features to cyclical features and greatly improved their prediction.
 
 ![NORAD 10839 Ground Truth and Prediction Comparison](images/model_n1_norad_10839_shape.png)
 
 The same can be seen in NORAD 27944.
 ![NORAD 27944 Ground Truth and Prediction Comparison](images/model_n1_norad_27944_shape.png)
+
+When limiting the models prediction to 14 days and having a separate model for each output feature, the shape of the data is very well preserved as can be seen with NORAD 12701.
+![NORAD 12701 Ground Truth and Prediction Comparison (full)](images/model_t5_norad_12701_shape_a.png)
+
+Zooming in on a 1-year period of the previous makes the error more observable.
+![NORAD 12701 Ground Truth and Prediction Comparison (1 Year)](images/model_t5_norad_12701_shape_b.png)
+
+[Back to Top](#table-of-contents)
+## E. Model Evaluation of Loss for N Models
+
+Below is a table showing the optimum loss achieved at 25 epochs for each model evolution.
+
+|*v*|Model Description|Train Loss<br><small>25 Epochs</small>|Validation Loss<br><small>25 Epochs</small>|
+|-:|:-|-:|-:|
+|1|3 fully connected layers<br>width of 100 each hidden layer<br>ReLU between layers  |0.03848|0.5963|
+|2|ResNet28 (nonlinear regression)<br>width of 256<br>optimizer Adam|0.03159|0.5297|
+|3|ResNet28 (nonlinear regression)<br>width of 256<br>optimizer AdamW w/ `weight_decay=0.00025` |0.02487|1.601|
+|4|ResNet28 (nonlinear regression)<br>width of 256<br>optimizer SGD|0.03276|19.44|
+|5|ResNet28 (nonlinear regression)<br>width of 128 (single output)<br>optimizer SGD<br>OneCycle scheduler to epoch 10<br>then switched to AdamW|5.176e-06|7.604e-07|
+
+<p align='center'><b>Table E1</b>  <code>N</code> variant model evolution</p>
+
+Within each model evolution, hyperparameter tuning took place resulting in various loss trails.
+
+![N1 Loss](images/n1_loss.png)
+![N2 Loss](images/n2_loss.png)
+![N3 Loss](images/n3_loss.png)
+![N4 Loss](images/n4_loss.png)
+
+From this point, a separate model was trained for each output feature.
+
+![N5 Loss](images/n5_loss.png)
+![N5 Loss for Inclination](images/n5_loss_incl.png)
+
+
+[Back to Top](#table-of-contents)
