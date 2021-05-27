@@ -136,37 +136,40 @@ The `N` models, while showing signs that convergence, converged much less quickl
 > * Select three examples where prediction failed, and analyse why. You should be able to find at least three different types of failure.
 Talk here about copying X values
 
+[Back to Top](#table-of-contents)
+
+
+
 # Unsupevised Learning
-*Due to the impact of bad TLE data on the supervised learning models, we want to use unsupervised learning to remove these abnormal data from the dataset before training the data.*
 
 ## Motivation
-> 1. Briefly state the nature of your work and why you chose it.
-> 2. What specific question, goal, or task did you try to address related to structure in the data (e.g. the clusters you found)?
 
-## Data Source
-> Describe the properties of the dataset (or data API service) you used. Be specific. Your i nformation at a minimum should include but not be l imited to:
->
-> * where the datasets or API resource i s l ocated,
-* what formats they returned/used,
-* what were the i mportant variables contained i n them,
-* how many records you used or retrieved (if using an API), and
-* what time periods they covered (if there i s a time element)
->
-> For example, if you downloaded data or used API services, you should state the specific URLs to those files or resources in a way that is trivial for the instructor to retrieve them if needed.
+Due to the impact of outliers in TLE data on the supervised learning models `[TIM TODO: Appendix]`, unsupervised learning models was used to remove these abnormal data from the training dataset before using them to train our neural network models.  Consistent patterns were observed in the first-order or second-order differences when examining data from the same satellite.  `DBSCAN` was selected to exploit this as regular data points are clustered together and data points which have abnoramlly large or small values relative to other data points in the series will be classified as outliers `[TIM TODO: Appendix]`.
 
 ## Unsupervised Learning Methods
-> * Briefly describe the workflow of your source code, the learning methods you used, and the feature representations you chose.
-> * How did you tune parameters?
-> * What challenges did you encounter and how did you solve them?
 
-*Anticipated data manipulation includes normalizing features, handling cyclic data, and treating variance in time series intervals.  Since the data anomaly usually applies to all features in a single data point, we will be trying out LocalOutlierFactor and DBSCAN from scikit-learn on highly predictive TLE features such as eccentricity and inclination.*
+As data are highly correlated between samples from the same satellite, the raw TLE entries are first grouped by their `NORAD ID` and then sorted in ascending order according to the `EPOCH`.  Then, the values for the first-order difference for `INCLINATION` and `ECCENTRICITY` used as inputs to `DBSCAN`.  The algorithm clusters similar values and isolated values with abnormally large jumps with its neighbors.
+
+Initially, a single `DBSCAN` model was created for both `INCLINATION` and `ECCENTRICITY` as input features, however, it was more reliant how the normalization was done and was less sensitive to anomaly from a single feature.  Although it required more computation time, training separate `DBSCAN` models resulted in less data manipulation and better results once combined.
+
+As initial predictions for the neural networks were evaluated, additional `DBSCAN` models were created to eliminate ouliters from `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE` by examining their second-order difference, resulting in a total of four `DBSCAN` models per satellite.
+
+Due to the large variance in size and values for individual satellites, the `min_sample` and `eps` parameter could not be static and must be dynamically adjusted for individual satellites.  To accomodate satellites with small and large amount of  data, the `min_sample` was set to require at least 20 samples or 1% of the total size of the data, whichever was greater.  
+
+The `eps` parameter was tuned accordingly with the features characeristics.  A higher `eps` value would lead to removal of more extreme outliers, while a lower `eps` could potentially remove borderline but valid values.  Ultimately, 3 times the standard deviation of the first-order difference was used for `INCLINATION` and `ECCENTRICITY` and the standard deviation of the second-order difference was used for `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE`.
 
 ## Unsupervised Evaluation
-> * What i nteresting relationships or insights did you get from your analysis?
-> * What didn't work, and why?
-> * To summarize your findings, i nclude at l east two visualizations (chart, plot, tag cloud, map or other graphic) that summarize your analysis.
 
-*To evaluate our results' quality, we will manually check them against bad data that have been identified previously.  A visualization that will aid the evaluation process is to plot the TLE data out while highlighting the outliers that we removed.  Another exciting visualization that we will create is to plot the frequency of these data points based on when they occurred to see if we can identify additional insights or patterns.*
+The anomaly detection were successful in removing many outliers, such as those which had their `NORAD ID`s attributed incorrectly or feature values which highly irregular.  However, it failed to catch consecutive outliers and it also falsely classified some valid data as anomaly.
+
+Misclassifying outliers generally fall under three categories.  First, a higher amount of misclassification occured during periods of increased solar activity, as additional orbital perturbations are normal during this time.  Second, as satellites deorbit as they enter the Earth's atmosphere, additional drag also cause the input features to vary more.  Finally, as the TLE data is reported with regular intervals, if some observations are missed, the next sample would result in a greater difference value.
+
+On examining these false positives, it was decided that these were tolerable, as the dataset contained a huge amount of data, falsely removing some of these normal data, even in niche circumstances, still generally accounted for less than 2% of the data.  See `[TIM TODO: Appendix]` Appendix [??. Anomaly detection with `DBSCAN`](#?) for data points marked for removal by the `DBSCAN` models.
+
+[Back to Top](#table-of-contents)
+
+
+
 
 # Discussion
 > * What did you l earn from doing Part A? What surprised you about your results? How could you extend your solution with more time/resources?
@@ -346,6 +349,7 @@ Zooming in on a 1-year period of the previous makes the error more observable.
 ![NORAD 12701 Ground Truth and Prediction Comparison (1 Year)](images/model_t5_norad_12701_shape_b.png)
 
 [Back to Top](#table-of-contents)
+
 ## E. Model Evaluation of Loss for N Models
 
 Below is a table showing the optimum loss achieved at 25 epochs for each model evolution.
@@ -372,5 +376,29 @@ From this point, a separate model was trained for each output feature.
 ![N5 Loss](images/n5_loss.png)
 ![N5 Loss for Inclination](images/n5_loss_incl.png)
 
+
+[Back to Top](#table-of-contents)
+
+
+## F. Anomaly detection with DBSCAN
+
+Below are anomaly detection results with the DBSCAN models from selected satellites.
+
+-------
+
+![24403](images/f_24403.png)
+<p align='center'><i>NORAD ID: 24403.  PEGASUS DEB (1994-029RG)</i></p>
+
+-------
+
+![28974](images/f_28974.png)
+<p align='center'><i>NORAD ID: 28974.  METEOR 2-5 DEB (1979-095K)</i></p>
+
+-------
+
+![36682](images/f_36682.png)
+<p align='center'><i>NORAD ID: 36682.  FENGYUN 1C DEB (1999-025DZC)</i></p>
+
+-------
 
 [Back to Top](#table-of-contents)
