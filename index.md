@@ -6,6 +6,8 @@ June 1, 2021
 <dd>Tim Chen* (ttcchen@umich.edu)</dd>
 <dt>Github Repository</dt>
 <dd><a href='https://github.com/cm-tle-pred/tle-prediction'>https://github.com/cm-tle-pred/tle-prediction</a></dd>
+<dt>This Paper</dt>
+<dd><a href='https://cm-tle-pred.github.io/'>https://cm-tle-pred.github.io/</a></dd>
 </dl>
 
 \* equal contribution
@@ -22,7 +24,6 @@ June 1, 2021
 	- [Feature Engineering](#feature-engineering)
 - [Supervised Learning](#supervised-learning)
 	- [Workflow, Learning Methods and Feature Tuning [NICK]](#workflow-learning-methods-and-feature-tuning-nick)
-	- [Simple Neural Network Investigation [NICK]](#simple-neural-network-investigation-nick)
 	- [Random Pair Model [NICK]](#random-pair-model-nick)
 		- [Xy Generation (why random pairs)](#xy-generation-why-random-pairs)
 		- [Describe the models (ResNet + predicting absolute)](#describe-the-models-resnet-predicting-absolute)
@@ -60,7 +61,7 @@ June 1, 2021
 
 Satellite positions can be calculated using publically available TLE (two-line element set) data.  See [Appendix A. What is a TLE?](#a-what-is-a-tle).  This standardized format has been used since the 1970s and can be used in conjunction with the SGP4 orbit model for satellite state propagation.  Due to many reasons, the accuracy of these propagations deteriorates when propagated beyond a few days.  Our project aimed to create better positional and velocity predictions which can lead to better maneuver and collision detection.
 
-To accomplish this, a machine learning pipeline was created that takes in a TLE dataset and builds separate train, validate and test sets. The raw training set is sent to an unsupervised model for anomaly detection where outliers are removed and then feature engineering is performed.  Finally, supervised learning models were trained and tuned based on the validation set.  The model was designed so that it would accept a single TLE record for a satellite along with its epoch and an epoch modifier and then output a new TLE for the same satellite at the target epoch.
+To accomplish this, a machine learning pipeline was created that takes in a TLE dataset and builds separate train, validate and test sets. See [Appendix B. Machine Learning Pipeline](#b-machine-learning-pipeline) for more details.  The raw training set is sent to an unsupervised model for anomaly detection where outliers are removed and then feature engineering is performed.  Finally, supervised learning models were trained and tuned based on the validation set.  The model was designed so that it would accept a single TLE record for a satellite along with its epoch and an epoch modifier and then output a new TLE for the same satellite at the target epoch.
 
 The models were trained on low-earth orbit (LEO) space debris objects with the expectation that they have relatively stable orbits.  This means active satellites that can maneuver were not used.  The resulting dataset, collected from [Space-Track.org](https://www.space-track.org/) via a public API, produced over 57 million TLE records for more than 21 thousand objects.
 
@@ -124,16 +125,13 @@ Please reference [Appendix G: Feature Engineering](#g-feature-engineering) for f
 
 ## Workflow, Learning Methods and Feature Tuning [NICK]
 
-Pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with a varying number of hidden layers and widths were created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on a paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).  A Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name.
+For the supervised section of the [machine learning pipeline](#b-machine-learning-pipeline), pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with a varying number of hidden layers and widths were created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on a paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).  A Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name.
 
-To get a feel for how a model would train and could be evaluated, the simple fully-connected neural network with only one hidden layer was trained and hyperparameters were tuned.  Due to the size of the training set, a subset of the training set was also used.  During this investigation, changes to data filtering were made to eliminate the training on bad data.  See Appendix [C. Simple Neural Network Investigation](#c-simple-neural-network-investigation) for further details.
+To get a feel for how a model would train and could be evaluated, the simple fully-connected neural network with only one hidden layer was trained and hyperparameters were tuned.  Due to the size of the training set, a subset of the training set was also used.  During this investigation, changes to data filtering were made to eliminate the training on bad data.  See [Appendix C. Simple Neural Network Investigation](#c-simple-neural-network-investigation) for further details.
 
-In later models, SGD and AdamW optimizers were experimented with.  AdamW resulted in faster learning so was generally preferred.  Understanding the AdamW doesn't generalize as well as SGD, we relied on our volume of data and utilizing dropout for generalizing and never ran into issues with overfitting.  At this stage, the models were starting to show some progress in capturing the shape of the data.  See Appendix [D. Models Learning Data Shape](#d-models-learning-data-shape).  To see how performance could be further improved, separate models were trained for each output feature.  This resulted in better capture of data shape.
+In later models, SGD and AdamW optimizers were experimented with.  AdamW resulted in faster learning so was generally preferred.  Understanding the AdamW doesn't generalize as well as SGD, we relied on our volume of data and utilizing dropout for generalizing and never ran into issues with overfitting.  At this stage, the models were starting to show some progress in capturing the shape of the data.  See [Appendix D. Models Learning Data Shape](#d-models-learning-data-shape).  To see how performance could be further improved, separate models were trained for each output feature.  This resulted in better capture of data shape.
 
 During training, the loss values were monitored and corrections were made to the learning rate to prevent overfitting and decrease model training times.  This required the saving of models and evaluating at each epoch and then restoring models to previous versions when training went awry.
-
-
-## Simple Neural Network Investigation [NICK]
 
 
 ## Random Pair Model [NICK]
