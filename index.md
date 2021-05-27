@@ -498,47 +498,42 @@ Below are the anomaly detection results with the DBSCAN models from selected sat
 
 Below is a table showing details of the features added to the dataset.  While all of these features are available, each model may use a different subset of features for training.
 
-| Feature Name | Description | Reason |
-|:-|:-|:-|
-| `EPOCH_JD` | A | B |
-| `EPOCH_FR` | A | B |
-| `MEAN_MOTION_DOT` | A | B |
-| `BSTAR` | A | B |
-| `INCLINATION` | A | B |
-| `RA_OF_ASC_NODE` | A | B |
-| `ECCENTRICITY` | A | B |
-| `ARG_OF_PERICENTER` | A | B |
-| `YEAR` | A | B |
-| `MEAN_ANOMALY` | A | B |
-| `MEAN_MOTION` | A | B |
-| `MEAN_ANOMALY_COS` | A | B |
-| `MEAN_ANOMALY_SIN` | A | B |
-| `INCLINATION_COS` | A | B |
-| `INCLINATION_SIN` | A | B |
-| `RA_OF_ASC_NODE_COS` | A | B |
-| `RA_OF_ASC_NODE_SIN` | A | B |
-| `SEMIMAJOR_AXIS` | A | B |
-| `PERIOD` | A | B |
-| `APOAPSIS` | A | B |
-| `PERIAPSIS` | A | B |
-| `RCS_SIZE` | A | B |
-| `SAT_RX` | A | B |
-| `SAT_RY` | A | B |
-| `SAT_RZ` | A | B |
-| `SAT_VX` | A | B |
-| `SAT_VY` | A | B |
-| `SAT_VZ` | A | B |
-| `YEAR` | A | B |
-| `DAY_OF_YEAR_COS` | A | B |
-| `DAY_OF_YEAR_SIN` | A | B |
-| `SUNSPOTS_1D` | A | B |
-| `SUNSPOTS_3D` | A | B |
-| `SUNSPOTS_7D` | A | B |
-| `AIR_MONTH_AVG_TEMP` | A | B |
-| `WATER_MONTH_AVG_TEMP` | A | B |
-| `ARG_OF_PERICENTER_ADJUSTED` | A | B |
-| `RA_OF_ASC_NODE_ADJUSTED` | A | B |
-| `REV_MEAN_ANOMALY_COMBINED` | A | B |
+| Feature Name | Description | Source | Data Specifications |
+|:-|:-|:-|:-|
+| `EPOCH_JD` | Julian day representation of `EPOCH` | Space-Track TLE | `2447892.5` for 1990-01-01 in increments of 1 per day |
+| `EPOCH_FR` | Remainder of `EPOCH_JD`, represented as a fraction of a day | Space-Track TLE | `0`-`1` |
+| `MEAN_MOTION_DOT` | 1st Derivative of the Mean Motion with respect to Time | Space-Track TLE |  |
+| `BSTAR` | B* Drag Term, or Radiation Pressure Coefficient  | Space-Track TLE | |
+| `INCLINATION` | Orbital inclination measures the tilt of an object's orbit around a celestial body (degrees) | Space-Track TLE | `0`-`180` |
+| `RA_OF_ASC_NODE` | Right Ascension of the Ascending Node is the angle measured eastwards (or, as seen from the north, counterclockwise) from the First Point of Aries to the node (degrees) | Space-Track TLE | `0`-`360` |
+| `ECCENTRICITY` | Eccentricity determines the amount by which its orbit around another body deviates from a perfect circle | Space-Track TLE | `0`-`0.25` |
+| `ARG_OF_PERICENTER` | Argument of Perigee is the angle from the body's ascending node to its periapsis, measured in the direction of motion (degrees) | Space-Track TLE | `0`-`360` |
+| `MEAN_ANOMALY` | The fraction of an elliptical orbit's period that has elapsed since the orbiting body passed periapsis, expressed as an angle (degrees) | Space-Track TLE | `0`-`360` |
+| `MEAN_MOTION` | Revolutions per day | Space-Track TLE | Typically `12`-`16` for satellites in LEO |
+| `SEMIMAJOR_AXIS` | The semi-major axis is the longest semidiameter of an orbit (km) | Space-Track `gp_history` | Roughly between `6,400` and `8,400` |
+| `PERIOD` | Orbital period (minutes) | Space-Track `gp_history` | `84`-`127` for satellites in LEO |
+| `APOAPSIS` | The largest distances between the satellite and Earth (km) | Space-Track `gp_history` | Less than `2,000` for satellites in LEO |
+| `PERIAPSIS` | The smallest distances between the satellite and Earth (km) | Space-Track `gp_history` | Less than `2,000` for satellites in LEO |
+| `RCS_SIZE` | Radar cross-section (RCS) size | Space-Track `gp_history` | `Small`, `Medium`, `Large` |
+| `EPOCH` | Gregorian datetime representation in UTC | Derived from `EPOCH_JD` and `EPOCH_FR` |  |
+| `YEAR` | Gregorian calendar year in UTC | Derived from `EPOCH` | `1990`-`2021` |
+| `MONTH` | Gregorian calendar month in UTC | Derived from `EPOCH` | `1`-`12` |
+| `DAY` | Gregorian calendar year in UTC | Derived from `EPOCH` | `1`-`31` |
+| `HOUR` | Hour of day in UTC | Derived from `EPOCH_FR` | `0`-`24` |
+| `MINUTE` | Minute of hour in UTC | Derived from `EPOCH_FR` | `0`-`60` |
+| `SECOND` | Second of minute in UTC | Derived from `EPOCH_FR` | `0`-`60` |
+| `MICROSECOND` | Microsecond remainder | Derived from `EPOCH_FR` | `0`-`1,000,000` |
+| `MEAN_ANOMALY_COS` / `MEAN_ANOMALY_SIN` | Cartessian representation of `MEAN_ANOMALY` | Derived from `MEAN_ANOMALY` | `-1`-`1` |
+| `INCLINATION_COS` / `INCLINATION_SIN` | Cartessian representation of `INCLINATION` | Derived from `INCLINATION` | `-1`-`1` |
+| `RA_OF_ASC_NODE_COS` / `RA_OF_ASC_NODE_SIN` | Cartessian representation of `RA_OF_ASC_NODE` | Derived from `RA_OF_ASC_NODE` | `-1`-`1` |
+| `DAY_OF_YEAR_COS` / `DAY_OF_YEAR_SIN` | Cyclic transition from last day of the year to first day of the year. | Derived from `DAY_OF_YEAR` | `-1`-`1` |
+| `SAT_RX`, `SAT_RY`, `SAT_RZ` | Satellite's `x`, `y`, and `z` coordinates centered around Earth | Cartesian coordinates by SGP4 | Roughly between `-8,000` and `8,000` |
+| `SAT_VX`, `SAT_VY`, `SAT_VZ` | Satellite's `x`, `y`, and `z` vectors | Cartesian vectors by SGP4 | Roughly between `-8` and `8` |
+| `SUNSPOTS_1D`, `SUNSPOTS_3D`, `SUNSPOTS_7D` | Rolling average for sunspot count of the past 1, 3, or 7 days | [Sunspot dataset](http://www.sidc.be/silso/datafiles) | `0` to `500s` |
+| `AIR_MONTH_AVG_TEMP` / `WATER_MONTH_AVG_TEMP` | Monthly average relative global air and water temperatures | [Temperature dataset](http://berkeleyearth.lbl.gov/auto/Global/Land_and_Ocean_complete.txt) | `-2`-`+2` |
+| `ARG_OF_PERICENTER_ADJUSTED` | Cumulative `ARG_OF_PERICENTER` from arbitary 0 | Derived from a series of `ARG_OF_PERICENTER` |  |
+| `RA_OF_ASC_NODE_ADJUSTED` | Cumulative `RA_OF_ASC_NODE` from arbitary 0 | Derived from a series of `ARG_OF_PERICENTER`|  |
+| `REV_MEAN_ANOMALY_COMBINED` | Cumulative `MEAN_ANOMALY` from arbitary 0 | Derived from a series of `MEAN_ANOMALY` and `REV_AT_EPOCH` |  |
 
 
 [Back to Top](#table-of-contents)
