@@ -1,5 +1,0 @@
-@import "{{ site.theme }}";
-
-#forkme_banner, #footer_wrap {
-    display: hidden;
-}
