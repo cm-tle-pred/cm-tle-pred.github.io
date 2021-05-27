@@ -15,16 +15,19 @@ June 1, 2021
 
 - [Table of Contents](#table-of-contents)
 - [Introduction](#introduction)
+- [Data Source](#data-source)
+	- [Raw Data](#raw-data)
+	- [Pre-Processing](#pre-processing)
+	- [Outlier Removal](#outlier-removal)
+	- [Feature Engineering](#feature-engineering)
+	- [Xy Generation](#xy-generation)
 - [Supervised Learning](#supervised-learning)
-	- [Supervised Learning Methods](#supervised-learning-methods)
-		- [Workflow and Learning Methods](#workflow-and-learning-methods)
-		- [Model and Feature Tuning](#model-and-feature-tuning)
+	- [Workflow, Learning Methods and Feature Tuning](#workflow-learning-methods-and-feature-tuning)
 		- [Challenges and Solutions](#challenges-and-solutions)
 	- [Evaluation](#evaluation)
 	- [Failure Analysis](#failure-analysis)
 - [Unsupevised Learning](#unsupevised-learning)
 	- [Motivation](#motivation)
-	- [Data Source](#data-source)
 	- [Unsupervised Learning Methods](#unsupervised-learning-methods)
 	- [Unsupervised Evaluation](#unsupervised-evaluation)
 - [Discussion](#discussion)
@@ -36,17 +39,18 @@ June 1, 2021
 	- [C. Simple Neural Network Investigation](#c-simple-neural-network-investigation)
 	- [D. Models Learning Data Shape](#d-models-learning-data-shape)
 	- [E. Model Evaluation of Loss for N Models](#e-model-evaluation-of-loss-for-n-models)
+	- [F. Anomaly detection with DBSCAN](#f-anomaly-detection-with-dbscan)
 
 <!-- /TOC -->
 
 # Introduction
 Satellite positions can be calculated using publically available TLE (two-line element set) data.  See [Appendix A. What is a TLE?](#a-what-is-a-tle).  This standardized format has been used since the 1970’s and can be used in conjunction with the SGP4 orbit model for satellite state propagation.  Due to many reasons, the accuracy of these propagations deteriorates when propagated beyond a few days.  Our project aimed to create better positional and velocity predictions which can lead to better maneuver and collision detection.
 
-To accomplish this, we created a machine learning pipeline that takes in a TLE dataset and is split it into train, validate and test sets. The training set is then sent to an unsupervised model for anomaly detection outliers are removed and then feature engineering is performed.  Finally, supervised learning models were trained and tuned based on the validation set.
+To accomplish this, a machine learning pipeline was created that takes in a TLE dataset and builds separate train, validate and test sets. The raw training set is sent to an unsupervised model for anomaly detection outliers are removed and then feature engineering is performed.  Finally, supervised learning models were trained and tuned based on the validation set.  The model was designed so that it would accept a single TLE record for a satellite along with its epoch and an epoch modifier and then output a new TLE for the same satellite at the target epoch.
 
-Our models were trained on low-earth orbit (LEO) space debris objects with the expectation that they have relativily stable orbits.  This means, active satellites that can maneuver weren't used.  The resulting dataset, collected from [Space-Track.org](https://www.space-track.org/) via a public API, produced over 57 million TLE records for more than 21 thousand objects.
+The models were trained on low-earth orbit (LEO) space debris objects with the expectation that they have relativily stable orbits.  This means, active satellites that can maneuver weren't used.  The resulting dataset, collected from [Space-Track.org](https://www.space-track.org/) via a public API, produced over 57 million TLE records for more than 21 thousand objects.
 
-The general structure of our model was to have an input consisting of a reference TLE with its epoch along with a target epoch from another TLE for the same satellite with the output being that target's TLE data.  A performant model could then use the output in the SGP4 model for predicting a satellite's position at the target epoch.  The performance of the model would measured by comparing the model results with the actual target TLE.  Knowing that errors exist within the TLE, the expectation was that training on such a massive dataset would force the model to generalize and thus accurately predict TLEs.
+The general structure of a model was to have an input consisting of a reference TLE with its epoch along with a target epoch from another TLE for the same satellite with the output being that target's TLE data.  A performant model could then use the output in the SGP4 model for predicting a satellite's position at the target epoch.  The performance of the model was measured by comparing the model results with the actual target TLE.  Knowing that errors exist within a TLE, the expectation was that training on such a massive dataset would force the model to generalize and thus accurately predict new TLEs.
 
 [Back to Top](#table-of-contents)
 
@@ -73,13 +77,13 @@ The data was also filtered to remove outliers which could be the result of deorb
  - **First few check** - we rejected the first five TLEs of every satellite after launch or discovery
  - **LEO check** - if satellite was no longer in LEO, we rejected those new TLEs
  - **Data range check** - various checks for bad data to ensure the features were within an expected range.  For example, features which should be within a range of 0-180 or 0-360 degrees depending on the feature.
- 
- 
+
+
 ## Outlier Removal
 
  - **Anomaly detection** - For more details, please read the [Unsupevised Learning](#unsupevised-learning) section.
 
- 
+
 ## Feature Engineering
 To prepare the data for training, the training dataset was split into inputs and outputs.  This method was different based on the model being trained.  The general approach was that each satellite would have a set of reference TLEs and target TLEs paired together.  In one approach, the epoch difference between the reference and the target was limited to 14 days.  In another approach, there was no limit so it was possible a refernce TLE from 1990 could be used to predict the satellite's TLE in the year 2021.  See Appendix [B. Building the X-inputs and y-outputSize](#b-building-the-x-inputs-and-y-outputs) for more details.
 
@@ -105,23 +109,13 @@ To prepare the inputs and outputs for training, they were generally normalized e
 
 
 # Supervised Learning
-
-## Supervised Learning Methods
 > * Briefly describe the workflow of your source code, the learning methods you used, and the feature representations you chose.
 > * How did you tune parameters?
 > * What challenges did you encounter and how did you solve them?
 
 *We plan to start with a Linear Regression and a simple NN with a single layer using a sample of the dataset as baseline models before moving on to a deep neural network (DNN).  Our data will consist of a normalized set of TLE variables with a target epoch as our input variables and the normalized TLE variables at the target epoch as the output variables. To account for natural effects that impact orbital mechanics, we will combine additional datasets on climate change, global temperature, solar cycles, and solar sunspot to improve accuracy.*
 
----
-
-### Workflow and Learning Methods
-
-[TIM NOTE: Reorganize these subsections?]
-
-[Back to Top](#table-of-contents)
-
-### Model and Feature Tuning
+## Workflow, Learning Methods and Feature Tuning
 Pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with varying number of hidden layers and width were created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on a paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).  A Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name.
 
 To get a feel for how a model would train and could be evaluated, the simple fully-connected neural network with only one hidden layer was trained and hyperparameters were tuned.  Due to the size of the training set, a subset of the training set was also used.  During this investigation, changes to data filtering were made to eliminate the training on bad data.  See Appendix [C. Simple Neural Network Investigation](#c-simple-neural-network-investigation) for further details.
@@ -176,7 +170,7 @@ Initially, a single `DBSCAN` model was created for both `INCLINATION` and `ECCEN
 
 As initial predictions for the neural networks were evaluated, additional `DBSCAN` models were created to eliminate ouliters from `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE` by examining their second-order difference, resulting in a total of four `DBSCAN` models per satellite.
 
-Due to the large variance in size and values for individual satellites, the `min_sample` and `eps` parameter could not be static and must be dynamically adjusted for individual satellites.  To accomodate satellites with small and large amount of  data, the `min_sample` was set to require at least 20 samples or 1% of the total size of the data, whichever was greater.  
+Due to the large variance in size and values for individual satellites, the `min_sample` and `eps` parameter could not be static and must be dynamically adjusted for individual satellites.  To accomodate satellites with small and large amount of  data, the `min_sample` was set to require at least 20 samples or 1% of the total size of the data, whichever was greater.
 
 The `eps` parameter was tuned accordingly with the features characeristics.  A higher `eps` value would lead to removal of more extreme outliers, while a lower `eps` could potentially remove borderline but valid values.  Ultimately, 3 times the standard deviation of the first-order difference was used for `INCLINATION` and `ECCENTRICITY` and the standard deviation of the second-order difference was used for `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE`.
 
