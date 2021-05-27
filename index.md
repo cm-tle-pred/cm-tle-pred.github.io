@@ -164,7 +164,7 @@ The anomaly detection were successful in removing many outliers, such as those w
 
 Misclassifying outliers generally fall under three categories.  First, a higher amount of misclassification occured during periods of increased solar activity, as additional orbital perturbations are normal during this time.  Second, as satellites deorbit as they enter the Earth's atmosphere, additional drag also cause the input features to vary more.  Finally, as the TLE data is reported with regular intervals, if some observations are missed, the next sample would result in a greater difference value.
 
-On examining these false positives, it was decided that these were tolerable, as the dataset contained a huge amount of data, falsely removing some of these normal data, even in niche circumstances, still generally accounted for less than 2% of the data.  See `[TIM TODO: Appendix]` Appendix [??. Anomaly detection with `DBSCAN`](#?) for data points marked for removal by the `DBSCAN` models.
+On examining these false positives, it was decided that these were tolerable, as the dataset contained a huge amount of data, falsely removing some of these normal data, even in niche circumstances, still generally accounted for less than 2% of the data.  See `[TIM TODO: Appendix]` Appendix [F. Anomaly detection with `DBSCAN`](#F.-Anomaly-detection-with-DBSCAN) for data points marked for removal by the `DBSCAN` models.
 
 [Back to Top](#table-of-contents)
 
