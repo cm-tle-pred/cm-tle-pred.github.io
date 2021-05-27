@@ -1,3 +1,4 @@
+<link rel="stylesheet" href="/css/styles.css">
 June 1, 2021
 
 <dl>
