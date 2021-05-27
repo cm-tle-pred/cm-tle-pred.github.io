@@ -138,7 +138,7 @@ During training, the loss values were monitored and corrections were made to the
 
 ### XY Generation (why random pairs)
 
-To see if a general model could be created that would be able to predict a TLE in any timeframe between 1990 and 2021, a random approach was applied to the creation of Xy pairs of TLEs for a given satellite.  This was accomplished by randomizing the TLEs for a given satellite and alternating between label and output (X and Y).
+To see if a general model could be created that would be able to predict a TLE in any timeframe between 1990 and 2021, a random approach was applied to the creation of XY pairs of TLEs for a given satellite.  This was accomplished by randomizing the TLEs for a given satellite and alternating between label and output (X and Y).  The end result was a set of XY pairs the same length as the original dataset.
 
 ### Describe the models (ResNet + predicting absolute)
 
@@ -385,33 +385,6 @@ model = train.create_model(model_cols=model_cols,
                            layer4=10, relu4=True, drop4=0.5,
                            layer5=10, relu5=True, drop5=0.5,
                           )
-
-class NNModelEx(nn.Module):
-    def __init__(self, inputSize, outputSize, **kwargs):
-        super().__init__()
-
-        network = []
-        p = inputSize
-        for k,v in kwargs.items():
-            if k.startswith('l'):
-                network.append(nn.Linear(in_features=p, out_features=v))
-                p=v
-            elif k.startswith('d'):
-                network.append(nn.Dropout(v))
-            elif k.startswith('t'):
-                network.append(nn.Tanh())
-            elif k.startswith('s'):
-                network.append(nn.Sigmoid())
-            elif k.startswith('r'):
-                network.append(nn.ReLU())
-
-        network.append(nn.Linear(in_features=p, out_features=outputSize))
-        #network.append(nn.ReLU())
-
-        self.net = nn.Sequential(*network)
-
-    def forward(self, X):
-        return self.net(X)
 ```
 
 	NNModelEx(
