@@ -210,17 +210,21 @@ On examining these false positives, it was decided that these were tolerable, as
 
 # Challenges and Solutions
 
-## REV_MA [TIM]
+## Mean Anomaly Data Representation
 
-Blah
+The `MEAN_ANOMALY` has two very interesting traits which makes it extremely problematic to predict properly without the help of other features.  Firstly, the `MEAN_ANOMALY` value is between 0-360, representing its position along an orbit.  However, satellites in Low Earth Orbit typically orbits the Earth every 90 to 120 minutes, resulting in the value wrapping around 12 to 16 times a day.  With most satellites only having one or two TLE entries per day, these observations are considered very sparse.  To complicate matters further, these values are only reported at very specific values over time, perhaps due to the observation stations physical position on Earth and when the satellites passes overhead.  The following diagram demonstrates this problem.  The red points are actual observed data and the grey line covers where the values would be if an observation was made.
 
-## Custom Loss [TIM]
+![Mean anomaly challenge](images/mean_anomaly_challenge.png)
 
-Blah
+Without knowing what the data is supposed to look like, it is very easy to fit a line across due to the traits that this feature has.  To tackle this problem, `REV_AT_EPOCH` was used and combined with `MEAN_ANOMALY` into a new feature called `REV_MA`, which should correctly represent the data's change over time.  However, this does not solve the issue completely, as `REV_AT_EPOCH` can is known to be inaccurate at times, and when the value reaches 100,000, it wraps back to 0.  Additional processing were done to separate segments of data points based on their `REV_AT_EPOCH` values.
 
-## Additional DBSCAN features [TIM]
+## Custom Loss Functions
 
-Blah
+Custom loss functions were explored due to undetected data inconsistencies.  For example, when calculating the `REV_MA` feature, `REV_AT_EPOCH` value that's off by 1 will result in a `REV_MA` value that is off by 360.  With known issues related to `REV_AT_EPOCH` where 100,000 is represented as 10,000 instead of 0, when rolling over and when multiple ground stations representing inconsistent `REV_AT_EPOCH` values, a prediction that is correct can potentially have a huge loss due to the incorrect targets.  Variants of L1 and L2 loss functions where only the best 75% and 95% predictions were tested.  A version of the 75% L2 loss resulted in the best overall accuracy for `REV_MA` predictions.
+
+## Additional DBSCAN Features
+
+In the earlier versions of the Neighboring Pairs Model, the `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE` loss was converging quickly but remained very high.  Upon inspecting the data which resulted in poor predictions, outliers were spotted in these features.  The `DBSCAN` anomaly detection part of the pipeline was revisited with the addition of these features, and ultimately improved the loss by two orders of magnitude.
 
 ## Loss + Optimizers parameter optimization with Schedulers [NICK]
 
@@ -233,9 +237,9 @@ Our biggest challenge was a vanishing gradient where our models loss would expon
 
 Blah
 
-## Saving / loading model and rollback [TIM]
+## Model Saving, Loading, and Rollback
 
-Blah
+When exploring different neural network architectures as well as choice of loss function and optimizer hyperparameters, there was a need for loading models which were trained in previous sessions, or to roll back current iterations to and earlier epoch when experiments failed.  Manually saving and loading files was tedius and prone to human errors, and a system was developed to automatically save the model, epoch and loss history, loss function, and optimizer whenever a new epoch is completed.  When the model performance was deemed not satisfactory, an automatic rollback to best version could be triggered. Manual loading to a previous state of the model was also supported by this system.  These enhancements allowed for quick iterative tuning of hyperparameters and also prevented loss of progress when the training process encountered errors.
 
 
 
