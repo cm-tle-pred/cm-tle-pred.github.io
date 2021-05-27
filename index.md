@@ -26,7 +26,7 @@ June 1, 2021
 		- [Challenges and Solutions](#challenges-and-solutions)
 	- [Evaluation](#evaluation)
 	- [Failure Analysis](#failure-analysis)
-- [Unsupevised Learning](#unsupevised-learning)
+- [Unsupervised Learning](#unsupervised-learning)
 	- [Motivation](#motivation)
 	- [Unsupervised Learning Methods](#unsupervised-learning-methods)
 	- [Unsupervised Evaluation](#unsupervised-evaluation)
@@ -45,11 +45,11 @@ June 1, 2021
 
 # Introduction
 
-Satellite positions can be calculated using publically available TLE (two-line element set) data.  See [Appendix A. What is a TLE?](#a-what-is-a-tle).  This standardized format has been used since the 1970’s and can be used in conjunction with the SGP4 orbit model for satellite state propagation.  Due to many reasons, the accuracy of these propagations deteriorates when propagated beyond a few days.  Our project aimed to create better positional and velocity predictions which can lead to better maneuver and collision detection.
+Satellite positions can be calculated using publically available TLE (two-line element set) data.  See [Appendix A. What is a TLE?](#a-what-is-a-tle).  This standardized format has been used since the 1970s and can be used in conjunction with the SGP4 orbit model for satellite state propagation.  Due to many reasons, the accuracy of these propagations deteriorates when propagated beyond a few days.  Our project aimed to create better positional and velocity predictions which can lead to better maneuver and collision detection.
 
 To accomplish this, a machine learning pipeline was created that takes in a TLE dataset and builds separate train, validate and test sets. The raw training set is sent to an unsupervised model for anomaly detection outliers are removed and then feature engineering is performed.  Finally, supervised learning models were trained and tuned based on the validation set.  The model was designed so that it would accept a single TLE record for a satellite along with its epoch and an epoch modifier and then output a new TLE for the same satellite at the target epoch.
 
-The models were trained on low-earth orbit (LEO) space debris objects with the expectation that they have relativily stable orbits.  This means, active satellites that can maneuver weren't used.  The resulting dataset, collected from [Space-Track.org](https://www.space-track.org/) via a public API, produced over 57 million TLE records for more than 21 thousand objects.
+The models were trained on low-earth orbit (LEO) space debris objects with the expectation that they have relatively stable orbits.  This means active satellites that can maneuver were not used.  The resulting dataset, collected from [Space-Track.org](https://www.space-track.org/) via a public API, produced over 57 million TLE records for more than 21 thousand objects.
 
 The general structure of a model was to have an input consisting of a reference TLE with its epoch along with a target epoch from another TLE for the same satellite with the output being that target's TLE data.  A performant model could then use the output in the SGP4 model for predicting a satellite's position at the target epoch.  The performance of the model was measured by comparing the model results with the actual target TLE.  Knowing that errors exist within a TLE, the expectation was that training on such a massive dataset would force the model to generalize and thus accurately predict new TLEs.
 
@@ -64,37 +64,37 @@ The general structure of a model was to have an input consisting of a reference 
 
 ## Raw Data
 
-TLE data from the [Space-Track.org](https://www.space-track.org/) `gp_history` API was used for this project.  Roughly 150 million entries of historical TLE data was downloaded into approximately 1,500 CSV files for processing.  Another dataset was obtained by scraping the [International Laser Ranging Services](https://ilrs.gsfc.nasa.gov) website to identify a list of satellites that have more accurate positional readings that we could use as our final evaluation metric.  [Sunspot data](http://www.sidc.be/silso/datafiles) from the World Data Center SILSO, Royal Observatory of Belgium, Brussels was used as reference for solar activity.  [Temperature data](http://berkeleyearth.lbl.gov/auto/Global/Land_and_Ocean_complete.txt) was downloaded from Berkley Earth (Rohde, R. A. and Hausfather, Z.: The Berkeley Earth Land/Ocean Temperature, Record Earth Syst. Sci. Data, 12, 3469–3479, 2020).
+TLE data from the [Space-Track.org](https://www.space-track.org/) `gp_history` API was used for this project.  Roughly 150 million entries of historical TLE data was downloaded into approximately 1,500 CSV files for processing.  Another dataset was obtained by scraping the [International Laser Ranging Services](https://ilrs.gsfc.nasa.gov) website to identify a list of satellites that have more accurate positional readings that we could use as our final evaluation metric.  [Sunspot data](http://www.sidc.be/silso/datafiles) from the World Data Center SILSO, Royal Observatory of Belgium, Brussels was used to indicate solar activity.  [Temperature data](http://berkeleyearth.lbl.gov/auto/Global/Land_and_Ocean_complete.txt) was downloaded from Berkley Earth (Rohde, R. A. and Hausfather, Z.: The Berkeley Earth Land/Ocean Temperature, Record Earth Syst. Sci. Data, 12, 3469–3479, 2020).
 
 
 ## Pre-Processing
 
-After the raw data was collected, a list of Low Earth Orbit satellites were identified a training, testing and validation set was created utilizing a 70/15/15 split.  The split was done on a satellite level, where data from the same satellite would be grouped in same set to prevent data leakage.  The list of satellites included in the ILRS dataset was also distributed in the testing and validation set.  Due to the large amount of data, multiprocessing was utilized to ensure speedier processing.
+After the raw data was collected, a list of Low Earth Orbit satellites was identified a training, testing, and validation set was created utilizing a 70/15/15 split.  The split was done on a satellite level, where data from the same satellite would be grouped in the same set to prevent data leakage.  The list of satellites included in the ILRS dataset was also distributed in the testing and validation set.  Due to the large amount of data, multiprocessing was utilized to ensure speedier processing.
 
-After the basic LEO filtering and splits, the training set contains around 55 million rows of data.  Further filters were done to increase data integrity:
+After the basic LEO filtering and splits, the training set still contained over 55 million rows of data.  Further filters were done to increase data integrity:
 
  - **Recent data check** - Only data gathered after 1990 onwards, due to less accuracy, consistency, and frequency of data prior to that.
  - **First few check** - The first 5 entries of a satellite were discarded, as they tend to be less accurate when generated with less historical data.
- - **LEO check** - A satellite could no longer be classified with a LEO orbit as its orbit changes, entries that did not match the LEO requirements were removed.
- - **Data range check** - Finally, some data were corrupted and had values which were impossible to achieve, such as `MEAN_MOTION` of 100.
+ - **LEO check** - A satellite could no longer be classified with an LEO orbit as its orbit changes, entries that did not match the LEO requirements were removed.
+ - **Data range check** - Finally, some data were corrupted and had values that were impossible to achieve, such as a `MEAN_MOTION` of 100.
 
 With these filters, the amount of data is further reduced by 5 million rows.
 
 ## Outlier Removal
 
-While the data which remained fell within the technical specifications, there were still some data which appeared to be outliers.  These data were likely to be misidentified as the wrong satellite, or had suboptimal readings.  For more details on the outlier detection and removal, please read the [Unsupevised Learning](#unsupevised-learning) section.
+While the data which remained fell within the technical specifications, there were still some data that appeared to be outliers.  These data were likely to be misidentified as the wrong satellite or had suboptimal readings.  For more details on the outlier detection and removal, please read the [Unsupervised Learning](#unsupervised-learning) section.
 
 ## Feature Engineering
 
-A TLE contains a few fields which can be used for SGP4 propagation ([Appendix A: What is a TLE](#a-what-is-a-tle)), however, to allow the models to achieve better accuracy, additional features were added into the dataset:
+A TLE contains a few fields which can be used for SGP4 propagation ([Appendix A: What is a TLE](#a-what-is-a-tle)), however, to allow the models to achieve better accuracy, additional features were added to the dataset:
 
-* Some features which were not part of the TLE data format that were included in the Space-Track provided data, such as `SEMIMAJOR_AXIS`, `PERIOD`, `APOAPSIS`, `PERIAPSIS`, and `RCS_SIZE` matched back with the TLE entries.
+* Some features which were not part of the TLE data format that was included in the Space-Track provided data, such as `SEMIMAJOR_AXIS`, `PERIOD`, `APOAPSIS`, `PERIAPSIS`, and `RCS_SIZE` matched back with the TLE entries.
 * Daily sunspot data with 1-day, 3-day, and 7-day rolling averages as well as monthly air and water temperatures from the external datasets were also mapped back to each TLE according to their `EPOCH` day and month.
 * Some features exhibited periodic waveform patterns.  Cartesian representations of these features were added as extra features.
-* Some features represented modulo values, psuedo reverse modulus representations were generated for these features so that its linear nature is represented.
+* Some features represented modulo values, pseudo reverse modulus representations were generated for these features so that their linear nature is represented.
 * Cartesian representation of position and velocity using the SGP4 algorithm were also added as additional features.
 
-Please reference [TIM TODO: APPENDIX LINK] [Appendix ?:Feature Engineering](#?) for full details of all the features which were added to the dataset.
+Please reference [Appendix G: Feature Engineering](#g-feature-engineering) for full details of all the features which were added to the dataset.
 
 [Back to Top](#table-of-contents)
 
@@ -107,17 +107,17 @@ Please reference [TIM TODO: APPENDIX LINK] [Appendix ?:Feature Engineering](#?) 
 > * How did you tune parameters?
 > * What challenges did you encounter and how did you solve them?
 
-*We plan to start with a Linear Regression and a simple NN with a single layer using a sample of the dataset as baseline models before moving on to a deep neural network (DNN).  Our data will consist of a normalized set of TLE variables with a target epoch as our input variables and the normalized TLE variables at the target epoch as the output variables. To account for natural effects that impact orbital mechanics, we will combine additional datasets on climate change, global temperature, solar cycles, and solar sunspot to improve accuracy.*
+*We plan to start with a Linear Regression and a simple NN with a single layer using a sample of the dataset as baseline models before moving on to a deep neural network (DNN).  Our data will consist of a normalized set of TLE variables with a target epoch as our input variables and the normalized TLE variables at the target epoch as the output variables. To account for natural effects that impact orbital mechanics, we will combine additional datasets on climate change, global temperature, solar cycles, and solar sunspots to improve accuracy.*
 
 ## Workflow, Learning Methods and Feature Tuning [NICK]
 
-Pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with varying number of hidden layers and width were created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on a paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).  A Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name.
+Pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with a varying number of hidden layers and widths were created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on a paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).  A Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name.
 
 To get a feel for how a model would train and could be evaluated, the simple fully-connected neural network with only one hidden layer was trained and hyperparameters were tuned.  Due to the size of the training set, a subset of the training set was also used.  During this investigation, changes to data filtering were made to eliminate the training on bad data.  See Appendix [C. Simple Neural Network Investigation](#c-simple-neural-network-investigation) for further details.
 
-In later models, SGD and AdamW optimizers were experimented with.  AdamW resulted in faster learning so was generally preferred.  Understanding the AdamW doesn't generalize as well as SGD, we relied on our volume of data and utilizing dropout for generalizing and never ran into issues with overfiitting.  At this stage, the models were starting to show some progress in capturing the shape of the data.  See Appendix [D. Models Learning Data Shape](#d-models-learning-data-shape).  To see how performance could be further improved, separate models were trained for each output feature.  This resulted in better capture of data shape.
+In later models, SGD and AdamW optimizers were experimented with.  AdamW resulted in faster learning so was generally preferred.  Understanding the AdamW doesn't generalize as well as SGD, we relied on our volume of data and utilizing dropout for generalizing and never ran into issues with overfitting.  At this stage, the models were starting to show some progress in capturing the shape of the data.  See Appendix [D. Models Learning Data Shape](#d-models-learning-data-shape).  To see how performance could be further improved, separate models were trained for each output feature.  This resulted in better capture of data shape.
 
-During training, error was monitored and corrections were made to the learning rate to prevent overfitting and decrease model training times.  This required the saving of models and evaluating at each epoch and then restoring models to previous versions when training went awry.
+During training, the loss values were monitored and corrections were made to the learning rate to prevent overfitting and decrease model training times.  This required the saving of models and evaluating at each epoch and then restoring models to previous versions when training went awry.
 
 
 ## Simple Neural Network Investigation [NICK]
@@ -131,13 +131,7 @@ Blah
 
 ### Describe the models (ResNet + predicting absolute)
 
-> TIM NOTE: I copied the older section to here, please re-arrange as needed
-
-Pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with varying number of hidden layers and width were created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on a paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).  A Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name.
-
-In later models, SGD and AdamW optimizers were experimented with.  AdamW resulted in faster learning so was generally preferred.  Understanding the AdamW doesn't generalize as well as SGD, we relied on our volume of data and utilizing dropout for generalizing and never ran into issues with overfiitting.  At this stage, the models were starting to show some progress in capturing the shape of the data.  See Appendix [D. Models Learning Data Shape](#d-models-learning-data-shape).  To see how performance could be further improved, separate models were trained for each output feature.  This resulted in better capture of data shape.
-
-During training, error was monitored and corrections were made to the learning rate to prevent overfitting and decrease model training times.  This required the saving of models and evaluating at each epoch and then restoring models to previous versions when training went awry.
+Blah
 
 
 
@@ -166,9 +160,9 @@ Blah
 *Mean square error on the baseline models’ predictions will be used as benchmarks for evaluation.  We will also consider using a custom loss function on predicted spatial x, y, z positions.  To visualize the model's effectiveness, we can plot propagated satellite positions using the SGP4, our baseline models, the DNN model against the true dataset (other TLEs) together in 3D.  Visualizing the errors for the models based on individual feature variances will also show where the strengths and weaknesses of the models lie.*
 
 ---
-The model evaluations took place on two different sets of training data that were assembled differently based on the raw training data.  In one approach, we'll call the `N` models, each TLE input was paired with a random TLE output for the same satellite.  This resulted in two TLEs (an input and an output) that would have a random time difference between them spanning days, weeks or even years apart.  In another approach, we'll call the `T` models, each TLE input for a satellite was paired with its sisters resulting in a larger training set but then reduced by limiting their time difference to 14 days.  See Appendix [B. Building the X-inputs and y-outputSize](#b-building-the-x-inputs-and-y-outputs) for more details.
+The model evaluations took place on two different sets of training data that were assembled differently based on the raw training data.  In one approach, we'll call the `N` models, each TLE input was paired with a random TLE output for the same satellite.  This resulted in two TLEs (an input and an output) that would have a random time difference between them spanning days, weeks, or even years apart.  In another approach, we'll call the `T` models, each TLE input for a satellite was paired with its sisters resulting in a larger training set but then reduced by limiting their time difference to 14 days.  See Appendix [B. Building the X-inputs and y-outputSize](#b-building-the-x-inputs-and-y-outputs) for more details.
 
-The `N` models, while showing signs that convergence, converged much less quickly than the `T` models.  During this time, it was established that the training loss necessary to compete with the SGP4 propigation model needed to be on an order of `1e-8` or smaller.  The `N` and `T` models were changed so that separate models would be trained for each output feature.  The `N` models did show some major improvement but not at the level of the `T` models.  For more details, please see Appendix [E. Model Evaluation of Loss for N Models](#e-model-evaluation-of-loss-for-n-models).
+The `N` models, while showing signs that convergence, converged much less quickly than the `T` models.  During this time, it was established that the training loss necessary to compete with the SGP4 propagation model needed to be on an order of `1e-8` or smaller.  The `N` and `T` models were changed so that separate models would be trained for each output feature.  The `N` models did show some major improvement but not at the level of the `T` models.  For more details, please see Appendix [E. Model Evaluation of Loss for N Models](#e-model-evaluation-of-loss-for-n-models).
 
 
 
@@ -183,29 +177,29 @@ Talk here about copying X values
 
 ---
 
-# Unsupevised Learning
+# Unsupervised Learning
 
 ## Motivation
 
-Due to the impact of outliers in TLE data on the supervised learning models `[TIM TODO: Appendix]`, unsupervised learning models was used to remove these abnormal data from the training dataset before using them to train our neural network models.  Consistent patterns were observed in the first-order or second-order differences when examining data from the same satellite.  `DBSCAN` was selected to exploit this as regular data points are clustered together and data points which have abnoramlly large or small values relative to other data points in the series will be classified as outliers `[TIM TODO: Appendix]`.
+Due to the impact of outliers in TLE data on the supervised learning models, the use of unsupervised learning models were explored to remove these abnormal data from the training dataset before using them to train our neural network models.  Consistent patterns were observed in the first-order or second-order differences when examining data from the same satellite.  `DBSCAN` was selected to exploit this as regular data points are clustered together and data points which have abnoramlly large or small values relative to other data points in the series will be classified as outliers.
 
 ## Unsupervised Learning Methods
 
-As data are highly correlated between samples from the same satellite, the raw TLE entries are first grouped by their `NORAD ID` and then sorted in ascending order according to the `EPOCH`.  Then, the values for the first-order difference for `INCLINATION` and `ECCENTRICITY` used as inputs to `DBSCAN`.  The algorithm clusters similar values and isolated values with abnormally large jumps with its neighbors.
+As data are highly correlated between samples from the same satellite, the raw TLE entries are first grouped by their `NORAD_ID` and then sorted in ascending order according to the `EPOCH`.  Then, the values for the first-order difference for `INCLINATION` and `ECCENTRICITY` used as inputs to `DBSCAN`.  The algorithm clusters similar values and isolated values with abnormally large jumps with its neighbors.
 
-Initially, a single `DBSCAN` model was created for both `INCLINATION` and `ECCENTRICITY` as input features, however, it was more reliant how the normalization was done and was less sensitive to anomaly from a single feature.  Although it required more computation time, training separate `DBSCAN` models resulted in less data manipulation and better results once combined.
+Initially, a single `DBSCAN` model was created for both `INCLINATION` and `ECCENTRICITY` as input features, however, it was more reliant on how the normalization was done and was less sensitive to anomalies from a single feature.  Although it required more computation time, training separate `DBSCAN` models resulted in less data manipulation and better results once combined.
 
-As initial predictions for the neural networks were evaluated, additional `DBSCAN` models were created to eliminate ouliters from `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE` by examining their second-order difference, resulting in a total of four `DBSCAN` models per satellite.
+As initial predictions for the neural networks were evaluated, additional `DBSCAN` models were created to eliminate outliers from `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE` by examining their second-order difference, resulting in a total of four `DBSCAN` models per satellite.
 
-Due to the large variance in size and values for individual satellites, the `min_sample` and `eps` parameter could not be static and must be dynamically adjusted for individual satellites.  To accomodate satellites with small and large amount of  data, the `min_sample` was set to require at least 20 samples or 1% of the total size of the data, whichever was greater.
+Due to the large variance in size and values for individual satellites, the `min_sample` and `eps` parameters could not be static and must be dynamically adjusted for individual satellites.  To accommodate satellites with both small and large amount of data, the `min_sample` was set to require at least 20 samples or 1% of the total size of the data, whichever was greater.
 
-The `eps` parameter was tuned accordingly with the features characeristics.  A higher `eps` value would lead to removal of more extreme outliers, while a lower `eps` could potentially remove borderline but valid values.  Ultimately, 3 times the standard deviation of the first-order difference was used for `INCLINATION` and `ECCENTRICITY` and the standard deviation of the second-order difference was used for `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE`.
+The `eps` parameter was tuned accordingly with the features characteristics.  A higher `eps` value would lead to the removal of more extreme outliers, while a lower `eps` could potentially remove borderline but valid values.  Ultimately, 3 times the standard deviation of the first-order difference was used for `INCLINATION` and `ECCENTRICITY`, and the standard deviation of the second-order difference was used for `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE`.
 
 ## Unsupervised Evaluation
 
-The anomaly detection were successful in removing many outliers, such as those which had their `NORAD ID`s attributed incorrectly or feature values which highly irregular.  However, it failed to catch consecutive outliers and it also falsely classified some valid data as anomaly.
+The anomaly detection was successful in identifying many outliers, such as those which had their `NORAD_ID`s attributed incorrectly or feature values that were highly irregular.  However, it failed to catch consecutive outliers and it also falsely classified some valid data as an anomaly.
 
-Misclassifying outliers generally fall under three categories.  First, a higher amount of misclassification occured during periods of increased solar activity, as additional orbital perturbations are normal during this time.  Second, as satellites deorbit as they enter the Earth's atmosphere, additional drag also cause the input features to vary more.  Finally, as the TLE data is reported with regular intervals, if some observations are missed, the next sample would result in a greater difference value.
+Misclassifying outliers generally fall under three categories.  First, a higher amount of misclassification occurred during periods of increased solar activity, as additional orbital perturbations are normal during this time.  Second, as satellites deorbit as they enter the Earth's atmosphere, additional drag also causes the input features to vary more.  Finally, as the TLE data is reported with regular intervals, if some observations are missed, the next sample would result in a greater difference value.
 
 On examining these false positives, it was decided that these were tolerable, as the dataset contained a huge amount of data, falsely removing some of these normal data, even in niche circumstances, still generally accounted for less than 2% of the data.  See `[TIM TODO: Appendix]` Appendix [F. Anomaly detection with `DBSCAN`](#F.-Anomaly-detection-with-DBSCAN) for data points marked for removal by the `DBSCAN` models.
 
@@ -284,11 +278,11 @@ We would like to extend a special thank you to the following people who went abo
 
 **Professor Christopher Brooks**
 
-> Thank you Chris for kindly making available your high computing resources, nellodee, for this project.  This proved to be instrumental in the handling this massive dataset and for allowing us to run models 24/7 while utilizing ungodly amounts of RAM.
+> Thank you Chris for kindly making available your high computing resources, nellodee, for this project.  This proved to be instrumental in  handling this massive dataset and for allowing us to run models 24/7 while utilizing ungodly amounts of RAM.
 
 **Professor Patrick Seitzer**
 
-> Thank you Pat for your patience in helping us understand orbital mechnanics and providing us with additional reference materials.
+> Thank you Pat for your patience in helping us understand orbital mechanics and providing us with additional reference materials.
 
 [Back to Top](#table-of-contents)
 
@@ -297,23 +291,23 @@ We would like to extend a special thank you to the following people who went abo
 # Appendix
 
 ## A. What is a TLE?
-A two-line element set (TLE) is a standardized format for describing a satellites orbit and trajectory.  Below is an example for the International Space Station.
+A two-line element set (TLE) is a standardized format for describing a satellite's orbit and trajectory.  Below is an example for the International Space Station.
 
 	ISS (ZARYA)
 	1 25544U 98067A   08264.51782528 -.00002182  00000-0 -11606-4 0  2927
 	2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537
 <p align='center'>Example TLE for the International Space Station<br><i>Source: Wikipedia</i></p>
 
-A TLE contains 14 fields, from this, only 9 of these are necessary for the SGP4 algorithm.  A target EPOCH is also necessary for the SGP4 algirthm to proprigate and thus result position and velocity vectors.
+A TLE contains 14 fields, from this, only 9 of these are necessary for the SGP4 algorithm.  A target EPOCH is also necessary for the SGP4 algorithm to propagate target position and velocity vectors.
 
 - Epoch Year - The year the TLE was calculated
 - Epoch Day - The day and fraction of the day the TLE was calculated
 - B-star - The drag term or radiation pressure coefficient
 - Inclination - Satellite orbit tilt between 0 and 180 degrees
 - Right Ascension of the Ascending Node - Ranging from 0 to 360 degrees
-- Eccentricitiy - A measure of how circular the orbit is ranging from 0 to 0.25 for LEO satellites
+- Eccentricity - A measure of how circular the orbit is ranging from 0 to 0.25 for LEO satellites
 - Argument of Perigee - The angle from the ascending node ranging from 0 to 360 degrees
-- Mean Anomaly - The angular position measured from pericenter if orbit was circular ranging from 0 to 360 degrees
+- Mean Anomaly - The angular position measured from pericenter if the orbit was circular ranging from 0 to 360 degrees
 - Mean Motion - The angular speed necessary to complete one orbit measured in revolutions per day with a minimum of 11.25 for LEO satellites
 
 [Back to Top](#table-of-contents)
@@ -502,7 +496,7 @@ Below are anomaly detection results with the DBSCAN models from selected satelli
 
 ## G. Feature Engineering
 
-Below is a table showing details of the features added into the dataset.
+Below is a table showing details of the features added to the dataset.  While all of these features are available, each model may use a different subset of features for training.
 
 | Feature Name | Description | Reason |
 |:-|:-|:-|
