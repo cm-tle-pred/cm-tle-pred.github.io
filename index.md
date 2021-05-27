@@ -44,6 +44,7 @@ June 1, 2021
 <!-- /TOC -->
 
 # Introduction
+
 Satellite positions can be calculated using publically available TLE (two-line element set) data.  See [Appendix A. What is a TLE?](#a-what-is-a-tle).  This standardized format has been used since the 1970’s and can be used in conjunction with the SGP4 orbit model for satellite state propagation.  Due to many reasons, the accuracy of these propagations deteriorates when propagated beyond a few days.  Our project aimed to create better positional and velocity predictions which can lead to better maneuver and collision detection.
 
 To accomplish this, a machine learning pipeline was created that takes in a TLE dataset and builds separate train, validate and test sets. The raw training set is sent to an unsupervised model for anomaly detection outliers are removed and then feature engineering is performed.  Finally, supervised learning models were trained and tuned based on the validation set.  The model was designed so that it would accept a single TLE record for a satellite along with its epoch and an epoch modifier and then output a new TLE for the same satellite at the target epoch.
@@ -55,57 +56,50 @@ The general structure of a model was to have an input consisting of a reference 
 [Back to Top](#table-of-contents)
 
 
+---
+
+
 # Data Source
+
 
 ## Raw Data
 
-...
+TLE data from the [Space-Track.org](https://www.space-track.org/) `gp_history` API was used for this project.  Roughly 150 million entries of historical TLE data was downloaded into approximately 1,500 CSV files for processing.  Another dataset was obtained by scraping the [International Laser Ranging Services](https://ilrs.gsfc.nasa.gov) website to identify a list of satellites that have more accurate positional readings that we could use as our final evaluation metric.  [Sunspot data](http://www.sidc.be/silso/datafiles) from the World Data Center SILSO, Royal Observatory of Belgium, Brussels was used as reference for solar activity.  [Temperature data](http://berkeleyearth.lbl.gov/auto/Global/Land_and_Ocean_complete.txt) was downloaded from Berkley Earth (Rohde, R. A. and Hausfather, Z.: The Berkeley Earth Land/Ocean Temperature, Record Earth Syst. Sci. Data, 12, 3469–3479, 2020).
+
 
 ## Pre-Processing
-After the raw data was collected, we used multi-threading and multi-processing to identify the satellites to be used in our train and tests sets utilizing a 70/15/15 split.  We created another dataset by scraping the [International Laser Ranging Services](https://ilrs.gsfc.nasa.gov) website to identify a list of satellites that have more accurate positional readings that we could use as our final evaluation metric.  We then our data into a train, validate and test set, where all TLEs for a given satellite would wholey reside within only one of the sets to prevent data leakage.  Multi-threading and multi-processing was again used to build the complete train, validation and test TLE datasets.
 
-A TLE can be used to calculate some features that might be helpful in model training.  Some of these features, like `semimajor axis`, `period`, `apoapsis` and `periapsis` were already included in the data collection and thus were added into our datasets.  Other features like satellite position and velocity of the reference TLE were calculated using SGP4 and added into our datasets.
+After the raw data was collected, a list of Low Earth Orbit satellites were identified a training, testing and validation set was created utilizing a 70/15/15 split.  The split was done on a satellite level, where data from the same satellite would be grouped in same set to prevent data leakage.  The list of satellites included in the ILRS dataset was also distributed in the testing and validation set.  Due to the large amount of data, multiprocessing was utilized to ensure speedier processing.
 
-Since solar weather and atmospheric temperature have shown to impact the orbit of satellite orbit, two additional datasets were collected and included in our datasets.  These included the following:
+After the basic LEO filtering and splits, the training set contains around 55 million rows of data.  Further filters were done to increase data integrity:
 
- - **Sunspots** - Sunspots are a proxy for solar radiation which has been shown to increase the drag on satellites resulting in faster deorbits.  Using the epoch of the TLE, the daily, 3-day and 7-day average sunspot counts were added to the dataset.
- - **Temperature** - Global warming has shown to lower the density of the upper atmosphere causing decreased satellite drag.  Using the epoch of the TLE, the monthly average global air and water temperatures were added to the dataset.
+ - **Recent data check** - Only data gathered after 1990 onwards, due to less accuracy, consistency, and frequency of data prior to that.
+ - **First few check** - The first 5 entries of a satellite were discarded, as they tend to be less accurate when generated with less historical data.
+ - **LEO check** - A satellite could no longer be classified with a LEO orbit as its orbit changes, entries that did not match the LEO requirements were removed.
+ - **Data range check** - Finally, some data were corrupted and had values which were impossible to achieve, such as `MEAN_MOTION` of 100.
 
-The data was also filtered to remove outliers which could be the result of deorbiting satellites or simply bad data.  For this reason, the following filters were applied:
-
- - **Recent data check** - we only considered TLEs gathered from 1990 onwards.
- - **First few check** - we rejected the first five TLEs of every satellite after launch or discovery
- - **LEO check** - if satellite was no longer in LEO, we rejected those new TLEs
- - **Data range check** - various checks for bad data to ensure the features were within an expected range.  For example, features which should be within a range of 0-180 or 0-360 degrees depending on the feature.
-
+With these filters, the amount of data is further reduced by 5 million rows.
 
 ## Outlier Removal
 
- - **Anomaly detection** - For more details, please read the [Unsupevised Learning](#unsupevised-learning) section.
-
+While the data which remained fell within the technical specifications, there were still some data which appeared to be outliers.  These data were likely to be misidentified as the wrong satellite, or had suboptimal readings.  For more details on the outlier detection and removal, please read the [Unsupevised Learning](#unsupevised-learning) section.
 
 ## Feature Engineering
-To prepare the data for training, the training dataset was split into inputs and outputs.  This method was different based on the model being trained.  The general approach was that each satellite would have a set of reference TLEs and target TLEs paired together.  In one approach, the epoch difference between the reference and the target was limited to 14 days.  In another approach, there was no limit so it was possible a refernce TLE from 1990 could be used to predict the satellite's TLE in the year 2021.  See Appendix [B. Building the X-inputs and y-outputSize](#b-building-the-x-inputs-and-y-outputs) for more details.
 
-The inputs were then reduced to include the reference features and the target epoch.  The outputs were also reduced to include the following predicted features:
+A TLE contains a few fields which can be used for SGP4 propagation ([Appendix A: What is a TLE](#a-what-is-a-tle)), however, to allow the models to achieve better accuracy, additional features were added into the dataset:
 
-- Inclination
-- Right Ascension of the Ascending Node
-- Eccentricitiy
-- Argument of Perigee
-- Mean Anomaly
-- Mean Motion
-- B-star - Some models didn't predict this and instead expected to use a constant of `0.01`
+* Some features which were not part of the TLE data format that were included in the Space-Track provided data, such as `SEMIMAJOR_AXIS`, `PERIOD`, `APOAPSIS`, `PERIAPSIS`, and `RCS_SIZE` matched back with the TLE entries.
+* Daily sunspot data with 1-day, 3-day, and 7-day rolling averages as well as monthly air and water temperatures from the external datasets were also mapped back to each TLE according to their `EPOCH` day and month.
+* Some features exhibited periodic waveform patterns.  Cartesian representations of these features were added as extra features.
+* Some features represented modulo values, psuedo reverse modulus representations were generated for these features so that its linear nature is represented.
+* Cartesian representation of position and velocity using the SGP4 algorithm were also added as additional features.
 
-To prepare the inputs and outputs for training, they were generally normalized either between `0` and `1` or between `-1` and `1`.  Features with known lower and upperbound used min-max normalization to reduce the feature to between `0` and `1`.  Epochs were split into several features representing `year`, `month`, `day`, `hour`, `minute`, `second`, `microsecond`.  And cyclic features, like `day`, were generally split into two features: a sine and cosine transformation thus resulting in features between `-1` and `1`.  Depening on the model, the same feature may have used min-max normalization, standardization or cyclic transformation.  In our research, the cyclic transformation on cyclic features out performed min-max normaliztion and using a min-max between `0` and `1` and between `-0.5` and `0.5` made no difference.
-
-
-## Xy Generation
-
-...
-
+Please reference [TIM TODO: APPENDIX LINK] [Appendix ?:Feature Engineering](#?) for full details of all the features which were added to the dataset.
 
 [Back to Top](#table-of-contents)
+
+----
+
 
 
 # Supervised Learning
@@ -115,7 +109,8 @@ To prepare the inputs and outputs for training, they were generally normalized e
 
 *We plan to start with a Linear Regression and a simple NN with a single layer using a sample of the dataset as baseline models before moving on to a deep neural network (DNN).  Our data will consist of a normalized set of TLE variables with a target epoch as our input variables and the normalized TLE variables at the target epoch as the output variables. To account for natural effects that impact orbital mechanics, we will combine additional datasets on climate change, global temperature, solar cycles, and solar sunspot to improve accuracy.*
 
-## Workflow, Learning Methods and Feature Tuning
+## Workflow, Learning Methods and Feature Tuning [NICK]
+
 Pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with varying number of hidden layers and width were created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on a paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).  A Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name.
 
 To get a feel for how a model would train and could be evaluated, the simple fully-connected neural network with only one hidden layer was trained and hyperparameters were tuned.  Due to the size of the training set, a subset of the training set was also used.  During this investigation, changes to data filtering were made to eliminate the training on bad data.  See Appendix [C. Simple Neural Network Investigation](#c-simple-neural-network-investigation) for further details.
@@ -125,9 +120,41 @@ In later models, SGD and AdamW optimizers were experimented with.  AdamW resulte
 During training, error was monitored and corrections were made to the learning rate to prevent overfitting and decrease model training times.  This required the saving of models and evaluating at each epoch and then restoring models to previous versions when training went awry.
 
 
+## Simple Neural Network Investigation [NICK]
+
+
+## Random Pair Model [NICK]
+
+### Xy Generation (why random pairs)
+
+Blah
+
+### Describe the models (ResNet + predicting absolute)
+
+> TIM NOTE: I copied the older section to here, please re-arrange as needed
+
+Pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with varying number of hidden layers and width were created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on a paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).  A Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name.
+
+In later models, SGD and AdamW optimizers were experimented with.  AdamW resulted in faster learning so was generally preferred.  Understanding the AdamW doesn't generalize as well as SGD, we relied on our volume of data and utilizing dropout for generalizing and never ran into issues with overfiitting.  At this stage, the models were starting to show some progress in capturing the shape of the data.  See Appendix [D. Models Learning Data Shape](#d-models-learning-data-shape).  To see how performance could be further improved, separate models were trained for each output feature.  This resulted in better capture of data shape.
+
+During training, error was monitored and corrections were made to the learning rate to prevent overfitting and decrease model training times.  This required the saving of models and evaluating at each epoch and then restoring models to previous versions when training went awry.
+
+
+
+## Neighboring Pair Model [TIM]
+
+### Xy Generation (why neighboring pairs)
+
+Blah
+
+### Describe the models (BiLinear + predicting offsets)
+
+Blah
+
+
 [Back to Top](#table-of-contents)
-### Challenges and Solutions
-Our biggest challenge was a vanishing gradient where our models loss would exponentially decay.  To address this problem, we would first look at tuning the learning rate.  We then explored different model architectures: deeper and narrower, shallower and wider, bilinear and ResNet28.  After reading [Loshchilov & Hutter's paper "Decoupled Weight Decay Regularization"](https://arxiv.org/abs/1711.05101), we explorered different optimizers and mostly settling on AdamW while always circling back to turning other hyperparameters like learning rate and model architecture.  We also had some success using the OneCycle scheduler that increases and then decreases the learning rate over each batch introduced by [Smith L. & Topin N. in their 2018 paper "Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates"](https://arxiv.org/abs/1708.07120).
+
+---
 
 
 ## Evaluation
@@ -154,7 +181,7 @@ Talk here about copying X values
 
 [Back to Top](#table-of-contents)
 
-
+---
 
 # Unsupevised Learning
 
@@ -184,7 +211,43 @@ On examining these false positives, it was decided that these were tolerable, as
 
 [Back to Top](#table-of-contents)
 
+---
 
+
+# Challenges and Solutions
+
+## REV_MA [TIM]
+
+Blah
+
+## Custom Loss [TIM]
+
+Blah
+
+## Additional DBSCAN features [TIM]
+
+Blah
+
+## Loss + Optimizers parameter optimization with Schedulers [NICK]
+
+> TIM NOTE: copied from older section
+
+Our biggest challenge was a vanishing gradient where our models loss would exponentially decay.  To address this problem, we would first look at tuning the learning rate.  We then explored different model architectures: deeper and narrower, shallower and wider, bilinear and ResNet28.  After reading [Loshchilov & Hutter's paper "Decoupled Weight Decay Regularization"](https://arxiv.org/abs/1711.05101), we explorered different optimizers and mostly settling on AdamW while always circling back to turning other hyperparameters like learning rate and model architecture.  We also had some success using the OneCycle scheduler that increases and then decreases the learning rate over each batch introduced by [Smith L. & Topin N. in their 2018 paper "Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates"](https://arxiv.org/abs/1708.07120).
+
+
+## Configurable flexible model creation [NICK]
+
+Blah
+
+## Saving / loading model and rollback [TIM]
+
+Blah
+
+
+
+[Back to Top](#table-of-contents)
+
+---
 
 
 # Discussion
@@ -193,22 +256,27 @@ On examining these false positives, it was decided that these were tolerable, as
 > * What ethical i ssues could arise i n providing a solution to Part A, and how could you address them?
 > * What ethical i ssues could arise i n providing a solution to Part B, and how could you address them?
 
+[Back to Top](#table-of-contents)
+
+---
+
 # Statement of Work
 
 <dl>
-<dt>Nicholas Miller</dt>
-<dd>Data split strategy</dd>
-<dd>Feature Engineering</dd>
-<dd>Initial neural network models</dd>
-<dd>Deep learning ResNet28 model</dd>
-<dd>Training and Evaluation</dd>
-<dd>Final Report</dd>
-<dt>Tim Chen</dt>
-<dd>Data collection</dd>
-<dd>Unsupervised anomaly detection model</dd>
-<dd>Deep learning bilinear model</dd>
-<dd>Training and Evaluation</dd>
-<dd>Final Report</dd>
+    <dt>Nicholas Miller</dt>
+    <dd>Data split strategy</dd>
+    <dd>Feature Engineering</dd>
+    <dd>Initial neural network models</dd>
+    <dd>Random Pair Model</dd>
+    <dd>Training and Evaluation</dd>
+    <dd>Final Report</dd>
+    <dt>Tim Chen</dt>
+    <dd>Data collection</dd>
+    <dd>Feature Engineering</dd>
+    <dd>Unsupervised learning outlier detection models</dd>
+    <dd>Neighboring Pair Model</dd>
+    <dd>Training and Evaluation</dd>
+    <dd>Final Report</dd>
 </dl>
 
 ## Thank You
@@ -216,11 +284,15 @@ We would like to extend a special thank you to the following people who went abo
 
 **Professor Christopher Brooks**
 
-> Thank you Chris for kindly making available your personal high computing resources, Nellodee, for this project.  This proved to be instrumental in the handling this massive dataset and for allowing us to run models 24hr while utilizing ungodly amounts of RAM.
+> Thank you Chris for kindly making available your high computing resources, nellodee, for this project.  This proved to be instrumental in the handling this massive dataset and for allowing us to run models 24/7 while utilizing ungodly amounts of RAM.
 
 **Professor Patrick Seitzer**
 
-> Thank you Pat for your patence in helping us understand orbital mechnanics and your guidance on our AMOS conference submission.
+> Thank you Pat for your patience in helping us understand orbital mechnanics and providing us with additional reference materials.
+
+[Back to Top](#table-of-contents)
+
+---
 
 # Appendix
 
@@ -245,6 +317,9 @@ A TLE contains 14 fields, from this, only 9 of these are necessary for the SGP4 
 - Mean Motion - The angular speed necessary to complete one orbit measured in revolutions per day with a minimum of 11.25 for LEO satellites
 
 [Back to Top](#table-of-contents)
+
+-------
+
 ## B. Building the X-inputs and y-outputs
 
 
@@ -263,6 +338,9 @@ A TLE contains 14 fields, from this, only 9 of these are necessary for the SGP4 
 <p align='center'><b>Table B1</b>  Example Raw Y-outputs (not normalized)</p>
 
 [Back to Top](#table-of-contents)
+
+-------
+
 ## C. Simple Neural Network Investigation
 
 |Test L1 Loss | Test L2 Loss | Change History | Time |
@@ -346,9 +424,10 @@ class NNModelEx(nn.Module):
 	  )
 	)
 
-
-
 [Back to Top](#table-of-contents)
+
+-------
+
 ## D. Models Learning Data Shape
 
 For the satellite NORAD 10839, the Mean Motion and Right Ascension of the Ascending Node are starting to take shape.  This earlier model did not convert some cyclical features resulting in the sawtooth ground truths.  Later models converted these features to cyclical features and greatly improved their prediction.
@@ -365,6 +444,8 @@ Zooming in on a 1-year period of the previous makes the error more observable.
 ![NORAD 12701 Ground Truth and Prediction Comparison (1 Year)](images/model_t5_norad_12701_shape_b.png)
 
 [Back to Top](#table-of-contents)
+
+-------
 
 ## E. Model Evaluation of Loss for N Models
 
@@ -395,12 +476,12 @@ From this point, a separate model was trained for each output feature.
 
 [Back to Top](#table-of-contents)
 
+-------
+
 
 ## F. Anomaly detection with DBSCAN
 
 Below are anomaly detection results with the DBSCAN models from selected satellites.
-
--------
 
 ![24403](images/f_24403.png)
 <p align='center'><i>NORAD ID: 24403.  PEGASUS DEB (1994-029RG)</i></p>
@@ -415,6 +496,57 @@ Below are anomaly detection results with the DBSCAN models from selected satelli
 ![36682](images/f_36682.png)
 <p align='center'><i>NORAD ID: 36682.  FENGYUN 1C DEB (1999-025DZC)</i></p>
 
+[Back to Top](#table-of-contents)
+
 -------
 
+## G. Feature Engineering
+
+Below is a table showing details of the features added into the dataset.
+
+| Feature Name | Description | Reason |
+|:-|:-|:-|
+| `EPOCH_JD` | A | B |
+| `EPOCH_FR` | A | B |
+| `MEAN_MOTION_DOT` | A | B |
+| `BSTAR` | A | B |
+| `INCLINATION` | A | B |
+| `RA_OF_ASC_NODE` | A | B |
+| `ECCENTRICITY` | A | B |
+| `ARG_OF_PERICENTER` | A | B |
+| `YEAR` | A | B |
+| `MEAN_ANOMALY` | A | B |
+| `MEAN_MOTION` | A | B |
+| `MEAN_ANOMALY_COS` | A | B |
+| `MEAN_ANOMALY_SIN` | A | B |
+| `INCLINATION_COS` | A | B |
+| `INCLINATION_SIN` | A | B |
+| `RA_OF_ASC_NODE_COS` | A | B |
+| `RA_OF_ASC_NODE_SIN` | A | B |
+| `SEMIMAJOR_AXIS` | A | B |
+| `PERIOD` | A | B |
+| `APOAPSIS` | A | B |
+| `PERIAPSIS` | A | B |
+| `RCS_SIZE` | A | B |
+| `SAT_RX` | A | B |
+| `SAT_RY` | A | B |
+| `SAT_RZ` | A | B |
+| `SAT_VX` | A | B |
+| `SAT_VY` | A | B |
+| `SAT_VZ` | A | B |
+| `YEAR` | A | B |
+| `DAY_OF_YEAR_COS` | A | B |
+| `DAY_OF_YEAR_SIN` | A | B |
+| `SUNSPOTS_1D` | A | B |
+| `SUNSPOTS_3D` | A | B |
+| `SUNSPOTS_7D` | A | B |
+| `AIR_MONTH_AVG_TEMP` | A | B |
+| `WATER_MONTH_AVG_TEMP` | A | B |
+| `ARG_OF_PERICENTER_ADJUSTED` | A | B |
+| `RA_OF_ASC_NODE_ADJUSTED` | A | B |
+| `REV_MEAN_ANOMALY_COMBINED` | A | B |
+
+
 [Back to Top](#table-of-contents)
+
+-------
