@@ -483,11 +483,6 @@ Below are anomaly detection results with the DBSCAN models from selected satelli
 
 -------
 
-![28974](images/f_28974.png)
-<p align='center'><i>NORAD ID: 28974.  METEOR 2-5 DEB (1979-095K)</i></p>
-
--------
-
 ![36682](images/f_36682.png)
 <p align='center'><i>NORAD ID: 36682.  FENGYUN 1C DEB (1999-025DZC)</i></p>
 
