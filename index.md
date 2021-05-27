@@ -47,7 +47,7 @@ June 1, 2021
 
 Satellite positions can be calculated using publically available TLE (two-line element set) data.  See [Appendix A. What is a TLE?](#a-what-is-a-tle).  This standardized format has been used since the 1970s and can be used in conjunction with the SGP4 orbit model for satellite state propagation.  Due to many reasons, the accuracy of these propagations deteriorates when propagated beyond a few days.  Our project aimed to create better positional and velocity predictions which can lead to better maneuver and collision detection.
 
-To accomplish this, a machine learning pipeline was created that takes in a TLE dataset and builds separate train, validate and test sets. The raw training set is sent to an unsupervised model for anomaly detection outliers are removed and then feature engineering is performed.  Finally, supervised learning models were trained and tuned based on the validation set.  The model was designed so that it would accept a single TLE record for a satellite along with its epoch and an epoch modifier and then output a new TLE for the same satellite at the target epoch.
+To accomplish this, a machine learning pipeline was created that takes in a TLE dataset and builds separate train, validate and test sets. The raw training set is sent to an unsupervised model for anomaly detection where outliers are removed and then feature engineering is performed.  Finally, supervised learning models were trained and tuned based on the validation set.  The model was designed so that it would accept a single TLE record for a satellite along with its epoch and an epoch modifier and then output a new TLE for the same satellite at the target epoch.
 
 The models were trained on low-earth orbit (LEO) space debris objects with the expectation that they have relatively stable orbits.  This means active satellites that can maneuver were not used.  The resulting dataset, collected from [Space-Track.org](https://www.space-track.org/) via a public API, produced over 57 million TLE records for more than 21 thousand objects.
 
@@ -201,7 +201,7 @@ The anomaly detection was successful in identifying many outliers, such as those
 
 Misclassifying outliers generally fall under three categories.  First, a higher amount of misclassification occurred during periods of increased solar activity, as additional orbital perturbations are normal during this time.  Second, as satellites deorbit as they enter the Earth's atmosphere, additional drag also causes the input features to vary more.  Finally, as the TLE data is reported with regular intervals, if some observations are missed, the next sample would result in a greater difference value.
 
-On examining these false positives, it was decided that these were tolerable, as the dataset contained a huge amount of data, falsely removing some of these normal data, even in niche circumstances, still generally accounted for less than 2% of the data.  See `[TIM TODO: Appendix]` Appendix [F. Anomaly detection with `DBSCAN`](#F.-Anomaly-detection-with-DBSCAN) for data points marked for removal by the `DBSCAN` models.
+On examining these false positives, it was decided that these were tolerable, as the dataset contained a huge amount of data, falsely removing some of these normal data, even in niche circumstances, still generally accounted for less than 2% of the data.  See [Appendix F. Anomaly Detection with `DBSCAN`](#f-anomaly-detection-with-dbscan) for data points marked for removal by the `DBSCAN` models.
 
 [Back to Top](#table-of-contents)
 
@@ -474,9 +474,9 @@ From this point, a separate model was trained for each output feature.
 <p style="page-break-before: always"></p>
 
 
-## F. Anomaly detection with DBSCAN
+## F. Anomaly Detection with DBSCAN
 
-Below are anomaly detection results with the DBSCAN models from selected satellites.
+Below are the anomaly detection results with the DBSCAN models from selected satellites.
 
 ![24403](images/f_24403.png)
 <p align='center'><i>NORAD ID: 24403.  PEGASUS DEB (1994-029RG)</i></p>
