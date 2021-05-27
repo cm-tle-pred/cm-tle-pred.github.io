@@ -20,26 +20,39 @@ June 1, 2021
 	- [Pre-Processing](#pre-processing)
 	- [Outlier Removal](#outlier-removal)
 	- [Feature Engineering](#feature-engineering)
-	- [Xy Generation](#xy-generation)
 - [Supervised Learning](#supervised-learning)
-	- [Workflow, Learning Methods and Feature Tuning](#workflow-learning-methods-and-feature-tuning)
-		- [Challenges and Solutions](#challenges-and-solutions)
+	- [Workflow, Learning Methods and Feature Tuning [NICK]](#workflow-learning-methods-and-feature-tuning-nick)
+	- [Simple Neural Network Investigation [NICK]](#simple-neural-network-investigation-nick)
+	- [Random Pair Model [NICK]](#random-pair-model-nick)
+		- [Xy Generation (why random pairs)](#xy-generation-why-random-pairs)
+		- [Describe the models (ResNet + predicting absolute)](#describe-the-models-resnet-predicting-absolute)
+	- [Neighboring Pair Model [TIM]](#neighboring-pair-model-tim)
+		- [Xy Generation (why neighboring pairs)](#xy-generation-why-neighboring-pairs)
+		- [Describe the models (BiLinear + predicting offsets)](#describe-the-models-bilinear-predicting-offsets)
 	- [Evaluation](#evaluation)
 	- [Failure Analysis](#failure-analysis)
 - [Unsupervised Learning](#unsupervised-learning)
 	- [Motivation](#motivation)
 	- [Unsupervised Learning Methods](#unsupervised-learning-methods)
 	- [Unsupervised Evaluation](#unsupervised-evaluation)
+- [Challenges and Solutions](#challenges-and-solutions)
+	- [Mean Anomaly Data Representation](#mean-anomaly-data-representation)
+	- [Custom Loss Functions](#custom-loss-functions)
+	- [Additional DBSCAN Features](#additional-dbscan-features)
+	- [Loss + Optimizers parameter optimization with Schedulers [NICK]](#loss-optimizers-parameter-optimization-with-schedulers-nick)
+	- [Configurable flexible model creation [NICK]](#configurable-flexible-model-creation-nick)
+	- [Model Saving, Loading, and Rollback](#model-saving-loading-and-rollback)
 - [Discussion](#discussion)
 - [Statement of Work](#statement-of-work)
 	- [Thank You](#thank-you)
 - [Appendix](#appendix)
 	- [A. What is a TLE?](#a-what-is-a-tle)
-	- [B. Building the X-inputs and y-outputs](#b-building-the-x-inputs-and-y-outputs)
+	- [B. Machine Learning Pipeline](#b-machine-learning-pipeline)
 	- [C. Simple Neural Network Investigation](#c-simple-neural-network-investigation)
 	- [D. Models Learning Data Shape](#d-models-learning-data-shape)
 	- [E. Model Evaluation of Loss for N Models](#e-model-evaluation-of-loss-for-n-models)
-	- [F. Anomaly detection with DBSCAN](#f-anomaly-detection-with-dbscan)
+	- [F. Anomaly Detection with DBSCAN](#f-anomaly-detection-with-dbscan)
+	- [G. Feature Engineering](#g-feature-engineering)
 
 <!-- /TOC -->
 
@@ -160,7 +173,7 @@ Blah
 *Mean square error on the baseline models’ predictions will be used as benchmarks for evaluation.  We will also consider using a custom loss function on predicted spatial x, y, z positions.  To visualize the model's effectiveness, we can plot propagated satellite positions using the SGP4, our baseline models, the DNN model against the true dataset (other TLEs) together in 3D.  Visualizing the errors for the models based on individual feature variances will also show where the strengths and weaknesses of the models lie.*
 
 ---
-The model evaluations took place on two different sets of training data that were assembled differently based on the raw training data.  In one approach, we'll call the `N` models, each TLE input was paired with a random TLE output for the same satellite.  This resulted in two TLEs (an input and an output) that would have a random time difference between them spanning days, weeks, or even years apart.  In another approach, we'll call the `T` models, each TLE input for a satellite was paired with its sisters resulting in a larger training set but then reduced by limiting their time difference to 14 days.  See Appendix [B. Building the X-inputs and y-outputSize](#b-building-the-x-inputs-and-y-outputs) for more details.
+The model evaluations took place on two different sets of training data that were assembled differently based on the raw training data.  In one approach, we'll call the `N` models, each TLE input was paired with a random TLE output for the same satellite.  This resulted in two TLEs (an input and an output) that would have a random time difference between them spanning days, weeks, or even years apart.  In another approach, we'll call the `T` models, each TLE input for a satellite was paired with its sisters resulting in a larger training set but then reduced by limiting their time difference to 14 days.  See [Appendix B. Machine Learning Pipeline](#b-machine-learning-pipeline) for more details.
 
 The `N` models, while showing signs that convergence, converged much less quickly than the `T` models.  During this time, it was established that the training loss necessary to compete with the SGP4 propagation model needed to be on an order of `1e-8` or smaller.  The `N` and `T` models were changed so that separate models would be trained for each output feature.  The `N` models did show some major improvement but not at the level of the `T` models.  For more details, please see Appendix [E. Model Evaluation of Loss for N Models](#e-model-evaluation-of-loss-for-n-models).
 
@@ -319,11 +332,12 @@ A TLE contains 14 fields, from this, only 9 of these are necessary for the SGP4 
 
 <p style="page-break-before: always"></p>
 
-## B. Building the X-inputs and y-outputs
-
+## B. Machine Learning Pipeline
+![Machine Learning Pipeline](images/ms2_nt_pipeline.png)
+<p align='center'><b>Figure B1</b>  Machine Learning Pipeline</p>
 
 ![Building Inputs and Outputs](images/xysplit.png)
-<p align='center'><b>Figure B1</b>  How a X/Y pair was generated</p>
+<p align='center'><b>Figure B2</b>  How a X/Y pair was generated</p>
 
 
 ||BSTAR|	INCLINATION|	RA_OF_ASC_NODE|	ECCENTRICITY|	ARG_OF_PERICENTER|	MEAN_ANOMALY|	MEAN_MOTION
