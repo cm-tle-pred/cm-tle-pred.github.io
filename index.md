@@ -49,20 +49,15 @@ Our models were trained on low-earth orbit (LEO) space debris objects with the e
 The general structure of our model was to have an input consisting of a reference TLE with its epoch along with a target epoch from another TLE for the same satellite with the output being that target's TLE data.  A performant model could then use the output in the SGP4 model for predicting a satellite's position at the target epoch.  The performance of the model would measured by comparing the model results with the actual target TLE.  Knowing that errors exist within the TLE, the expectation was that training on such a massive dataset would force the model to generalize and thus accurately predict TLEs.
 
 [Back to Top](#table-of-contents)
-# Supervised Learning
 
-## Supervised Learning Methods
-> * Briefly describe the workflow of your source code, the learning methods you used, and the feature representations you chose.
-> * How did you tune parameters?
-> * What challenges did you encounter and how did you solve them?
 
-*We plan to start with a Linear Regression and a simple NN with a single layer using a sample of the dataset as baseline models before moving on to a deep neural network (DNN).  Our data will consist of a normalized set of TLE variables with a target epoch as our input variables and the normalized TLE variables at the target epoch as the output variables. To account for natural effects that impact orbital mechanics, we will combine additional datasets on climate change, global temperature, solar cycles, and solar sunspot to improve accuracy.*
+# Data Source
 
----
+## Raw Data
 
-### Workflow and Learning Methods
+...
 
-#### Pre-Processing
+## Pre-Processing
 After the raw data was collected, we used multi-threading and multi-processing to identify the satellites to be used in our train and tests sets utilizing a 70/15/15 split.  We created another dataset by scraping the [International Laser Ranging Services](https://ilrs.gsfc.nasa.gov) website to identify a list of satellites that have more accurate positional readings that we could use as our final evaluation metric.  We then our data into a train, validate and test set, where all TLEs for a given satellite would wholey reside within only one of the sets to prevent data leakage.  Multi-threading and multi-processing was again used to build the complete train, validation and test TLE datasets.
 
 A TLE can be used to calculate some features that might be helpful in model training.  Some of these features, like `semimajor axis`, `period`, `apoapsis` and `periapsis` were already included in the data collection and thus were added into our datasets.  Other features like satellite position and velocity of the reference TLE were calculated using SGP4 and added into our datasets.
@@ -78,11 +73,14 @@ The data was also filtered to remove outliers which could be the result of deorb
  - **First few check** - we rejected the first five TLEs of every satellite after launch or discovery
  - **LEO check** - if satellite was no longer in LEO, we rejected those new TLEs
  - **Data range check** - various checks for bad data to ensure the features were within an expected range.  For example, features which should be within a range of 0-180 or 0-360 degrees depending on the feature.
+ 
+ 
+## Outlier Removal
+
  - **Anomaly detection** - For more details, please read the [Unsupevised Learning](#unsupevised-learning) section.
 
-
- [Back to Top](#table-of-contents)
-#### Feature Engineering
+ 
+## Feature Engineering
 To prepare the data for training, the training dataset was split into inputs and outputs.  This method was different based on the model being trained.  The general approach was that each satellite would have a set of reference TLEs and target TLEs paired together.  In one approach, the epoch difference between the reference and the target was limited to 14 days.  In another approach, there was no limit so it was possible a refernce TLE from 1990 could be used to predict the satellite's TLE in the year 2021.  See Appendix [B. Building the X-inputs and y-outputSize](#b-building-the-x-inputs-and-y-outputs) for more details.
 
 The inputs were then reduced to include the reference features and the target epoch.  The outputs were also reduced to include the following predicted features:
@@ -98,7 +96,31 @@ The inputs were then reduced to include the reference features and the target ep
 To prepare the inputs and outputs for training, they were generally normalized either between `0` and `1` or between `-1` and `1`.  Features with known lower and upperbound used min-max normalization to reduce the feature to between `0` and `1`.  Epochs were split into several features representing `year`, `month`, `day`, `hour`, `minute`, `second`, `microsecond`.  And cyclic features, like `day`, were generally split into two features: a sine and cosine transformation thus resulting in features between `-1` and `1`.  Depening on the model, the same feature may have used min-max normalization, standardization or cyclic transformation.  In our research, the cyclic transformation on cyclic features out performed min-max normaliztion and using a min-max between `0` and `1` and between `-0.5` and `0.5` made no difference.
 
 
+## Xy Generation
+
+...
+
+
 [Back to Top](#table-of-contents)
+
+
+# Supervised Learning
+
+## Supervised Learning Methods
+> * Briefly describe the workflow of your source code, the learning methods you used, and the feature representations you chose.
+> * How did you tune parameters?
+> * What challenges did you encounter and how did you solve them?
+
+*We plan to start with a Linear Regression and a simple NN with a single layer using a sample of the dataset as baseline models before moving on to a deep neural network (DNN).  Our data will consist of a normalized set of TLE variables with a target epoch as our input variables and the normalized TLE variables at the target epoch as the output variables. To account for natural effects that impact orbital mechanics, we will combine additional datasets on climate change, global temperature, solar cycles, and solar sunspot to improve accuracy.*
+
+---
+
+### Workflow and Learning Methods
+
+[TIM NOTE: Reorganize these subsections?]
+
+[Back to Top](#table-of-contents)
+
 ### Model and Feature Tuning
 Pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with varying number of hidden layers and width were created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on a paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).  A Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name.
 
