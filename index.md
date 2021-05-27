@@ -541,8 +541,8 @@ Below is a table showing details of the features added to the dataset.  While al
 | `DAY_OF_YEAR_COS` / `DAY_OF_YEAR_SIN` | Cyclic transition from last day of the year to first day of the year. | Derived from `DAY_OF_YEAR` | `-1`-`1` |
 | `SAT_RX`, `SAT_RY`, `SAT_RZ` | Satellite's `x`, `y`, and `z` coordinates centered around Earth | Cartesian coordinates by SGP4 | Roughly between `-8,000` and `8,000` |
 | `SAT_VX`, `SAT_VY`, `SAT_VZ` | Satellite's `x`, `y`, and `z` vectors | Cartesian vectors by SGP4 | Roughly between `-8` and `8` |
-| `SUNSPOTS_1D`, `SUNSPOTS_3D`, `SUNSPOTS_7D` | Rolling average for sunspot count of the past 1, 3, or 7 days | [Sunspot dataset](http://www.sidc.be/silso/datafiles) | `0` to `500s` |
-| `AIR_MONTH_AVG_TEMP` / `WATER_MONTH_AVG_TEMP` | Monthly average relative global air and water temperatures | [Temperature dataset](http://berkeleyearth.lbl.gov/auto/Global/Land_and_Ocean_complete.txt) | `-2`-`+2` |
+| `SUNSPOTS_1D`, `SUNSPOTS_3D`, `SUNSPOTS_7D` | The rolling average for sunspot count of the past 1, 3, or 7 days.  Sunspots are a proxy for solar radiation which has been shown to increase the drag on satellites resulting in faster deorbits.  | [Sunspot dataset](http://www.sidc.be/silso/datafiles) | `0` to `500s` |
+| `AIR_MONTH_AVG_TEMP` / `WATER_MONTH_AVG_TEMP` | Monthly average relative global air and water temperatures.  Global warming has shown to lower the density of the upper atmosphere causing decreased satellite drag. | [Temperature dataset](http://berkeleyearth.lbl.gov/auto/Global/Land_and_Ocean_complete.txt) | `-2`-`+2` |
 | `ARG_OF_PERICENTER_ADJUSTED` | Cumulative `ARG_OF_PERICENTER` from arbitary 0 | Derived from a series of `ARG_OF_PERICENTER` |  |
 | `RA_OF_ASC_NODE_ADJUSTED` | Cumulative `RA_OF_ASC_NODE` from arbitary 0 | Derived from a series of `ARG_OF_PERICENTER`|  |
 | `REV_MEAN_ANOMALY_COMBINED` | Cumulative `MEAN_ANOMALY` from arbitary 0 | Derived from a series of `MEAN_ANOMALY` and `REV_AT_EPOCH` |  |
