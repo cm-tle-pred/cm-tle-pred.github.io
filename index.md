@@ -25,10 +25,10 @@ June 1, 2021
 - [Supervised Learning](#supervised-learning)
 	- [Workflow, Learning Methods and Feature Tuning [NICK]](#workflow-learning-methods-and-feature-tuning-nick)
 	- [Random Pair Model [NICK]](#random-pair-model-nick)
-		- [Xy Generation (why random pairs)](#xy-generation-why-random-pairs)
+		- [XY Generation (why random pairs)](#xy-generation-why-random-pairs)
 		- [Describe the models (ResNet + predicting absolute)](#describe-the-models-resnet-predicting-absolute)
 	- [Neighboring Pair Model [TIM]](#neighboring-pair-model-tim)
-		- [Xy Generation (why neighboring pairs)](#xy-generation-why-neighboring-pairs)
+		- [XY Generation (why neighboring pairs)](#xy-generation-why-neighboring-pairs)
 		- [Describe the models (BiLinear + predicting offsets)](#describe-the-models-bilinear-predicting-offsets)
 	- [Evaluation](#evaluation)
 	- [Failure Analysis](#failure-analysis)
@@ -136,9 +136,9 @@ During training, the loss values were monitored and corrections were made to the
 
 ## Random Pair Model [NICK]
 
-### Xy Generation (why random pairs)
+### XY Generation (why random pairs)
 
-Blah
+To see if a general model could be created that would be able to predict a TLE in any timeframe between 1990 and 2021, a random approach was applied to the creation of Xy pairs of TLEs for a given satellite.  This was accomplished by randomizing the TLEs for a given satellite and alternating between label and output (X and Y).
 
 ### Describe the models (ResNet + predicting absolute)
 
@@ -148,7 +148,7 @@ Blah
 
 ## Neighboring Pair Model [TIM]
 
-### Xy Generation (why neighboring pairs)
+### XY Generation (why neighboring pairs)
 
 Blah
 

@@ -1,4 +1,4 @@
 theme: jekyll-theme-slate
-google_analytics: G-6V4945RKMQ
+google_analytics: UA-197582328-1
 title: TLE Prediction with Deep Learning
 description: A novel approach to predicting a satellite's TLE values for a given epoch using the data from a single known TLE from the same satellite.
