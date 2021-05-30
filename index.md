@@ -25,10 +25,10 @@ June 1, 2021
 - [Supervised Learning](#supervised-learning)
 	- [Workflow, Learning Methods and Feature Tuning [NICK]](#workflow-learning-methods-and-feature-tuning-nick)
 	- [Random Pair Model [NICK]](#random-pair-model-nick)
-		- [XY Generation (why random pairs)](#xy-generation-why-random-pairs)
+		- [Xy Generation (why random pairs)](#xy-generation-why-random-pairs)
 		- [Describe the models (ResNet + predicting absolute)](#describe-the-models-resnet-predicting-absolute)
 	- [Neighboring Pair Model [TIM]](#neighboring-pair-model-tim)
-		- [XY Generation (why neighboring pairs)](#xy-generation-why-neighboring-pairs)
+		- [Xy Generation (why neighboring pairs)](#xy-generation-why-neighboring-pairs)
 		- [Describe the models (BiLinear + predicting offsets)](#describe-the-models-bilinear-predicting-offsets)
 	- [Evaluation](#evaluation)
 	- [Failure Analysis](#failure-analysis)
@@ -136,9 +136,9 @@ During training, the loss values were monitored and corrections were made to the
 
 ## Random Pair Model [NICK]
 
-### XY Generation (why random pairs)
+### Xy Generation (why random pairs)
 
-To see if a general model could be created that would be able to predict a TLE in any timeframe between 1990 and 2021, a random approach was applied to the creation of XY pairs of TLEs for a given satellite.  This was accomplished by randomizing the TLEs for a given satellite and alternating between label and output (X and Y).  The end result was a set of XY pairs the same length as the original dataset.
+Blah
 
 ### Describe the models (ResNet + predicting absolute)
 
@@ -146,15 +146,31 @@ Blah
 
 
 
-## Neighboring Pair Model [TIM]
+## Neighboring Pair Model
 
-### XY Generation (why neighboring pairs)
+Another approach was explored where neighboring pairs of TLEs were used to generate the dataset instead of using random pairs.  The rationale behind this was that the SGP4 predictions were mostly useful up to a week or so depending on the task, so creating a dataset which only included TLE pairs within specific time interval ranges potentially lead to higher number and more relevant dataset to compare to the SGP4 baseline.
 
-Blah
+### Preparing the Dataset
 
-### Describe the models (BiLinear + predicting offsets)
+To generate the dataset, the TLE data was grouped based on their `NORAD_ID`s and an additional subgroup.  This additional subgroup was created to handle [`MEAN_ANOMALY` and `REV_AT_EPOCH` inconsistencies](#mean-anomaly-data-representation) in the data.  For each TLE entry in the subgroup, it will be paired with up to the 20 next TLE entries in the subgroup if the difference in `EPOCH` is less than 14 days.  Additional features were created for `ARG_OF_PERICENTER`, `RA_OF_ASC_NODE`, `MEAN_ANOMALY` and `REV_AT_EPOCH` based on their [adjusted values](#g-feature-engineering) to represent what those values would have been without modulo being applied (for example, a `MEAN_ANOMALY` value from 200 after one revolution would still be 200 unadjusted, but 560 in this adjusted version), and combined with `BSTAR`, `INCLINATION`, `ESSENTRICITY`, and `MEAN_MOTION` as the target features for the models.
 
-Blah
+### The Model
+
+The neural network consisted of 7 individually seperatable models.  For each model, the input data is fed through a sequence of `Linear` hidden layers, `ReLU` activation layers and `Dropout` layers.  For 6 of the 7 target features, the outputs of this initial sequence will then be applied to additional `Linear` and `Bilinear` layers with the `X_delta_EPOCH` feature before adding in the original X values for the features.  For the `MEAN_ANOMALY` model, additional reference to `MEAN_MOTION` was used.  See [Appendix H. Neighboring Pair Model Details](#h-neighboring-pair-model-details) for details regarding the model structure.
+
+
+In perfect orbital conditions, `ARG_OF_PERICENTER`, `RA_OF_ASC_NODE`, `INCLINATION`, `ESSENTRICITY`, and `MEAN_MOTION` would remain unchanged.  In essence, the models are trying to predict the difference in the TLE pairs assuming the orbits were without perturbing.  Here is an example of how how the TLE values are envisioned in reference to the perfect orbit and ideal model predictions:
+
+|  | Offset (days) | `ARG_OF_PERICENTER` | `RA_OF_ASC_NODE` | `INCLINATION` | `ESSENTRICITY` | `MEAN_MOTION` | `BSTAR` | `MEAN_ANOMALY` |
+|:-|:-|:-|:-|:-|:-|:-|:-|:-|
+| Reference TLE | - | 1.1757 | 108.1802 | 82.9556 | 0.0040323 | 13.75958369 | 0.00156370 | 358.9487 |
+| Perfect Orbit | 1.2 | 1.1757 | 108.1802 | 82.9556 | 0.0040323 | 13.75958369 | 0.00156370 <sup>*</sup> | 6303.08885408 <sup>#</sup> |
+| Ideal predictions | - | -1.2453 | -0.3229 | +0.0011 | +0.0000021 | +0.00001285 | 0.0000024 | -2.90495408 |
+| Ground Truth TLE | 1.2 | 359.9304 <sup>^</sup> | 107.8573	| 82.9567 | 0.0040344 | 13.75959654 | 0.00156130 | 180.1839 <sup>^</sup> |
+
+<sub><sup>*</sup> BSTAR would be 0 in perfect orbit, but in this case, reference TLE is used</sub><br />
+<sub><sup>#</sup> Before modulo `% 360` is applied</sub><br />
+<sub><sup>^</sup> After modulo `% 360` is applied</sub>
 
 
 [Back to Top](#table-of-contents)
@@ -385,6 +401,33 @@ model = train.create_model(model_cols=model_cols,
                            layer4=10, relu4=True, drop4=0.5,
                            layer5=10, relu5=True, drop5=0.5,
                           )
+
+class NNModelEx(nn.Module):
+    def __init__(self, inputSize, outputSize, **kwargs):
+        super().__init__()
+
+        network = []
+        p = inputSize
+        for k,v in kwargs.items():
+            if k.startswith('l'):
+                network.append(nn.Linear(in_features=p, out_features=v))
+                p=v
+            elif k.startswith('d'):
+                network.append(nn.Dropout(v))
+            elif k.startswith('t'):
+                network.append(nn.Tanh())
+            elif k.startswith('s'):
+                network.append(nn.Sigmoid())
+            elif k.startswith('r'):
+                network.append(nn.ReLU())
+
+        network.append(nn.Linear(in_features=p, out_features=outputSize))
+        #network.append(nn.ReLU())
+
+        self.net = nn.Sequential(*network)
+
+    def forward(self, X):
+        return self.net(X)
 ```
 
 	NNModelEx(
@@ -519,6 +562,47 @@ Below is a table showing details of the features added to the dataset.  While al
 | `ARG_OF_PERICENTER_ADJUSTED` | Cumulative `ARG_OF_PERICENTER` from arbitary 0 | Derived from a series of `ARG_OF_PERICENTER` |  |
 | `RA_OF_ASC_NODE_ADJUSTED` | Cumulative `RA_OF_ASC_NODE` from arbitary 0 | Derived from a series of `ARG_OF_PERICENTER`|  |
 | `REV_MEAN_ANOMALY_COMBINED` | Cumulative `MEAN_ANOMALY` from arbitary 0 | Derived from a series of `MEAN_ANOMALY` and `REV_AT_EPOCH` |  |
+
+
+[Back to Top](#table-of-contents)
+
+-------
+
+
+
+## H. Neighboring Pair Model
+
+### Model diagrams
+
+#### Generic
+![Generic](images/model_generic.png)
+
+#### Mean Anomaly
+![Mean Anomaly](images/model_mean_anomaly.png)
+
+#### Hidden Layer Configuration (indicated in orange)
+
+| Model | Configuration |
+|:-|:-|
+| INCLINATION | 15x100 fully connected layers, ReLU activation, Dropout (50%) |
+| ECCENTRICITY | 15x150 fully connected layers, ReLU activation, Dropout (50%) |
+| MEAN_MOTION | 4x80 fully connected layers, ReLU activation, Dropout (50%) |
+| RA_OF_ASC_NODE | 5x100 fully connected layers, ReLU activation, Dropout (50%) |
+| ARG_OF_PERICENTER | 4x300 and 4x150 fully connected layers, ReLU activation, Dropout (50%)<br /> |
+| MEAN_ANOMALY | 6x60 fully connected layers, ReLU activation, Dropout (40%)<br /> |
+| BSTAR | 7x60 fully connected layers, ReLU activation, Dropout (50%)<br /> |
+
+#### Model Performance and Configurations
+
+| Model | Optimizer (final parameter) | Loss Function | Holdout Loss |
+|:-|:-|:-|:-|
+| INCLINATION | AdamW (lr: 1e-09, weight_decay: 0.057) | MSE | 7.591381967486655e-10 |
+| ECCENTRICITY | AdamW (lr: 1e-08, weight_decay: 0.05) | MSE | 3.299049993188419e-07 |
+| MEAN_MOTION | AdamW (lr: 1e-08, weight_decay: 0.001) | MSE | 8.657459881687503e-07 |
+| RA_OF_ASC_NODE | AdamW (lr: 1e-09, weight_decay: 0.057) | MSE | 2.2815643205831293e-05 |
+| ARG_OF_PERICENTER | SGD (lr: 1e-07, momentum: 0.97) | MSE | 0.2577260938386543 |
+| MEAN_ANOMALY | AdamW (lr: 1e-07, weight_decay: 0.001) | Custom MAE (top 75%) | 2.5502161747681384e-05 |
+| BSTAR | AdamW (lr: 1e-08, weight_decay: 0.001) | MSE | 5.662784955617894e-06 |
 
 
 [Back to Top](#table-of-contents)
