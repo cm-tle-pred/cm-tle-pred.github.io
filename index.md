@@ -23,13 +23,13 @@ June 1, 2021
 	- [Outlier Removal](#outlier-removal)
 	- [Feature Engineering](#feature-engineering)
 - [Supervised Learning](#supervised-learning)
-	- [Workflow, Learning Methods and Feature Tuning [NICK]](#workflow-learning-methods-and-feature-tuning-nick)
-	- [Random Pair Model [NICK]](#random-pair-model-nick)
-		- [XY Generation (why random pairs)](#xy-generation-why-random-pairs)
-		- [Describe the models (ResNet + predicting absolute)](#describe-the-models-resnet-predicting-absolute)
-	- [Neighboring Pair Model [TIM]](#neighboring-pair-model-tim)
-		- [XY Generation (why neighboring pairs)](#xy-generation-why-neighboring-pairs)
-		- [Describe the models (BiLinear + predicting offsets)](#describe-the-models-bilinear-predicting-offsets)
+	- [Workflow, Learning Methods and Feature Tuning](#workflow-learning-methods-and-feature-tuning)
+	- [Random Pair Model](#random-pair-model)
+		- [Preparing the Dataset](#preparing-the-dataset)
+		- [The Model](#the-model)
+	- [Neighboring Pair Model](#neighboring-pair-model)
+		- [Preparing the Dataset](#preparing-the-dataset)
+		- [The Model](#the-model)
 	- [Evaluation](#evaluation)
 	- [Failure Analysis](#failure-analysis)
 - [Unsupervised Learning](#unsupervised-learning)
@@ -54,6 +54,8 @@ June 1, 2021
 	- [E. Model Evaluation of Loss for N Models](#e-model-evaluation-of-loss-for-n-models)
 	- [F. Anomaly Detection with DBSCAN](#f-anomaly-detection-with-dbscan)
 	- [G. Feature Engineering](#g-feature-engineering)
+	- [H. Neighboring Pair Model](#h-neighboring-pair-model)
+	- [I. Random Pair Model](#i-random-pair-model)
 
 <!-- /TOC -->
 
@@ -61,29 +63,25 @@ June 1, 2021
 
 Satellite positions can be calculated using publically available TLE (two-line element set) data.  See [Appendix A. What is a TLE?](#a-what-is-a-tle).  This standardized format has been used since the 1970s and can be used in conjunction with the SGP4 orbit model for satellite state propagation.  Due to many reasons, the accuracy of these propagations deteriorates when propagated beyond a few days.  Our project aimed to create better positional and velocity predictions which can lead to better maneuver and collision detection.
 
-To accomplish this, a machine learning pipeline was created that takes in a TLE dataset and builds separate train, validate and test sets. See [Appendix B. Machine Learning Pipeline](#b-machine-learning-pipeline) for more details.  The raw training set is sent to an unsupervised model for anomaly detection where outliers are removed and then feature engineering is performed.  Finally, supervised learning models were trained and tuned based on the validation set.  The model was designed so that it would accept a single TLE record for a satellite along with its epoch and an epoch modifier and then output a new TLE for the same satellite at the target epoch.
+To accomplish this, a machine learning pipeline was created that takes in a TLE dataset and builds separate train, validate and test sets. See [Appendix B. Machine Learning Pipeline](#b-machine-learning-pipeline) for more details.  The raw training set is sent to an unsupervised model for anomaly detection where outliers are removed and then feature engineering is performed.  Finally, supervised learning models were trained and tuned based on the validation set.
 
-The models were trained on low-earth orbit (LEO) space debris objects with the expectation that they have relatively stable orbits.  This means active satellites that can maneuver were not used.  The resulting dataset, collected from [Space-Track.org](https://www.space-track.org/) via a public API, produced over 57 million TLE records for more than 21 thousand objects.
+The models were trained on low-earth orbit (LEO) space debris objects with the expectation that they have relatively stable orbits.  This means active satellites that can maneuver were not used.  The resulting dataset, collected from [Space-Track.org](https://www.space-track.org/) via a public API, produced over 55 million TLE records from more than 21 thousand orbiting objects.
 
-The general structure of a model was to have an input consisting of a reference TLE with its epoch along with a target epoch from another TLE for the same satellite with the output being that target's TLE data.  A performant model could then use the output in the SGP4 model for predicting a satellite's position at the target epoch.  The performance of the model was measured by comparing the model results with the actual target TLE.  Knowing that errors exist within a TLE, the expectation was that training on such a massive dataset would force the model to generalize and thus accurately predict new TLEs.
+The general structure of a model was designed so that it would accept a single TLE record for a satellite along with its epoch and an epoch modifier and then output a new TLE for the same satellite at the target epoch.  A performant model could then use the output in the SGP4 model for predicting a satellite's position at the target epoch.  The performance of the model was measured by comparing the model results with the actual target TLE.  Knowing that errors exist within a TLE, the expectation was that training on such a massive dataset would force the model to generalize and thus accurately predict new TLEs.
 
 [Back to Top](#table-of-contents)
 
-
 ---
 
-
 # Data Source
-
 
 ## Raw Data
 
 TLE data from the [Space-Track.org](https://www.space-track.org/) `gp_history` API was used for this project.  Roughly 150 million entries of historical TLE data was downloaded into approximately 1,500 CSV files for processing.  Another dataset was obtained by scraping the [International Laser Ranging Services](https://ilrs.gsfc.nasa.gov) website to identify a list of satellites that have more accurate positional readings that we could use as our final evaluation metric.  [Sunspot data](http://www.sidc.be/silso/datafiles) from the World Data Center SILSO, Royal Observatory of Belgium, Brussels was used to indicate solar activity.  [Temperature data](http://berkeleyearth.lbl.gov/auto/Global/Land_and_Ocean_complete.txt) was downloaded from Berkley Earth (Rohde, R. A. and Hausfather, Z.: The Berkeley Earth Land/Ocean Temperature, Record Earth Syst. Sci. Data, 12, 3469–3479, 2020).
 
-
 ## Pre-Processing
 
-After the raw data was collected, a list of Low Earth Orbit satellites was identified a training, testing, and validation set was created utilizing a 70/15/15 split.  The split was done on a satellite level, where data from the same satellite would be grouped in the same set to prevent data leakage.  The list of satellites included in the ILRS dataset was also distributed in the testing and validation set.  Due to the large amount of data, multiprocessing was utilized to ensure speedier processing.
+After the raw data was collected, a list of Low Earth Orbit satellites was identified and split into training, testing, and validation sets utilizing a 70/15/15 split.  The split was done on a satellite level, where data from the same satellite would be grouped in the same set to prevent data leakage.  The list of satellites included in the ILRS dataset were also distributed across the testing and validation sets.  Due to the large amount of data, multiprocessing and multithreading was utilized to ensure speedier processing.
 
 After the basic LEO filtering and splits, the training set still contained over 55 million rows of data.  Further filters were done to increase data integrity:
 
@@ -103,7 +101,8 @@ While the data which remained fell within the technical specifications, there we
 A TLE contains a few fields which can be used for SGP4 propagation ([Appendix A: What is a TLE](#a-what-is-a-tle)), however, to allow the models to achieve better accuracy, additional features were added to the dataset:
 
 * Some features which were not part of the TLE data format that was included in the Space-Track provided data, such as `SEMIMAJOR_AXIS`, `PERIOD`, `APOAPSIS`, `PERIAPSIS`, and `RCS_SIZE` matched back with the TLE entries.
-* Daily sunspot data with 1-day, 3-day, and 7-day rolling averages as well as monthly air and water temperatures from the external datasets were also mapped back to each TLE according to their `EPOCH` day and month.
+* Daily sunspot data with 1-day, 3-day, and 7-day rolling averages was added since solar activity has been found to increase satellite decay according to [Chen, Deng, Miller, 2021 "Orbital Congestion"](https://mads-hatters.github.io/).
+* Monthly air and water temperatures from the external datasets were also mapped back to each TLE according to their `EPOCH` day and month.  According to Brown et al. in their 2021 paper ["Future decreases in themospheric density in very low Earth orbit"](https://www.essoar.org/doi/10.1002/essoar.10505899.1), satellites decay is reduced as atmospheric temperature increases.
 * Some features exhibited periodic waveform patterns.  Cartesian representations of these features were added as extra features.
 * Some features represented modulo values, pseudo reverse modulus representations were generated for these features so that their linear nature is represented.
 * Cartesian representation of position and velocity using the SGP4 algorithm were also added as additional features.
@@ -114,36 +113,30 @@ Please reference [Appendix G: Feature Engineering](#g-feature-engineering) for f
 
 ----
 
-
-
 # Supervised Learning
-> * Briefly describe the workflow of your source code, the learning methods you used, and the feature representations you chose.
-> * How did you tune parameters?
-> * What challenges did you encounter and how did you solve them?
 
-*We plan to start with a Linear Regression and a simple NN with a single layer using a sample of the dataset as baseline models before moving on to a deep neural network (DNN).  Our data will consist of a normalized set of TLE variables with a target epoch as our input variables and the normalized TLE variables at the target epoch as the output variables. To account for natural effects that impact orbital mechanics, we will combine additional datasets on climate change, global temperature, solar cycles, and solar sunspots to improve accuracy.*
+## Workflow, Learning Methods and Feature Tuning
 
-## Workflow, Learning Methods and Feature Tuning [NICK]
-
-For the supervised section of the [machine learning pipeline](#b-machine-learning-pipeline), pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with a varying number of hidden layers and widths were created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on a paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).  A Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name.
+For the supervised section of the [machine learning pipeline](#b-machine-learning-pipeline), pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with a varying number of hidden layers and widths were then created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on the paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193) and a Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name. See [Appendix H. Neighboring Pair Model](#h-neighboring-pair-model) for more details on the bilinear model.
 
 To get a feel for how a model would train and could be evaluated, the simple fully-connected neural network with only one hidden layer was trained and hyperparameters were tuned.  Due to the size of the training set, a subset of the training set was also used.  During this investigation, changes to data filtering were made to eliminate the training on bad data.  See [Appendix C. Simple Neural Network Investigation](#c-simple-neural-network-investigation) for further details.
 
-In later models, SGD and AdamW optimizers were experimented with.  AdamW resulted in faster learning so was generally preferred.  Understanding the AdamW doesn't generalize as well as SGD, we relied on our volume of data and utilizing dropout for generalizing and never ran into issues with overfitting.  At this stage, the models were starting to show some progress in capturing the shape of the data.  See [Appendix D. Models Learning Data Shape](#d-models-learning-data-shape).  To see how performance could be further improved, separate models were trained for each output feature.  This resulted in better capture of data shape.
+In later models, Adam and AdamW optimizers were experimented with.  AdamW resulted in faster learning so was generally preferred.  Understanding the AdamW doesn't generalize as well as SGD, the volume of the data and utilizing dropout ensured there were no issues with overfitting.  At this stage, the models were starting to show some progress in capturing the shape of the data.  See [Appendix D. Models Learning Data Shape](#d-models-learning-data-shape).  To see how performance could be further improved, separate models were trained for each output feature.  This resulted in reduced loss and thus better capture of data shape.
 
-During training, the loss values were monitored and corrections were made to the learning rate to prevent overfitting and decrease model training times.  This required the saving of models and evaluating at each epoch and then restoring models to previous versions when training went awry.
+During training, the loss values were monitored and corrections were made to the learning rate to prevent overfitting and decrease model training times.  This required the automaic saving of models and evaluating at each epoch and then restoring models to previous versions when training went awry.
 
 
-## Random Pair Model [NICK]
+## Random Pair Model
 
-### XY Generation (why random pairs)
+The ideal model would accept a TLE for a satellite with any target `EPOCH` and predict the new TLE values and consistently produce a propagated result that represented a more accurate representation of the satellite's true postion and velocity.  Therefore, for a given satellite in a dataset, their TLEs were random paired together.  This resulted in the differences between the reference and target epochs to form a unimodal symmetric distribution centering near zero.
 
-To see if a general model could be created that would be able to predict a TLE in any timeframe between 1990 and 2021, a random approach was applied to the creation of XY pairs of TLEs for a given satellite.  This was accomplished by randomizing the TLEs for a given satellite and alternating between label and output (X and Y).  The end result was a set of XY pairs the same length as the original dataset.
+### Preparing the Dataset
 
-### Describe the models (ResNet + predicting absolute)
+To generate the dataset, a method was created to generate index pairs where the first of the pair represented the index of the reference TLE and the second the index of the target TLE.  The method collected all the TLE indexes of a given satellite into a randomly sorted array and then iterated over the array such that the current array position and the next position formed a random pair.  When reaching the end of the array, the last entry and the first entry formed the random pair.  After creating the index pairs, multiprocessing was used to build the input/output split dataset using the index pairs as a map.
 
-Blah
+### The Model
 
+The residual neural network was created by defining two different types of blocks.  Each block type consisted of three dense layers and a shortcut.  The first block type contained a dense layer for a shortcut which the second type use an identity layer for its shortcut.  A dense block followed by two identity blocks created a stack.  Three stacks were then used followed by one dense layer.  See [Appendix I. Random Pair Model](#i-random-pair-model) for a diagram and layer details.
 
 
 ## Neighboring Pair Model
@@ -156,7 +149,7 @@ To generate the dataset, the TLE data was grouped based on their `NORAD_ID`s and
 
 ### The Model
 
-The neural network consisted of 7 individually seperatable models.  For each model, the input data is fed through a sequence of `Linear` hidden layers, `ReLU` activation layers and `Dropout` layers.  For 6 of the 7 target features, the outputs of this initial sequence will then be applied to additional `Linear` and `Bilinear` layers with the `X_delta_EPOCH` feature before adding in the original X values for the features.  For the `MEAN_ANOMALY` model, additional reference to `MEAN_MOTION` was used.  See [Appendix H. Neighboring Pair Model Details](#h-neighboring-pair-model-details) for details regarding the model structure.
+The neural network consisted of 7 individually seperatable models.  For each model, the input data is fed through a sequence of `Linear` hidden layers, `ReLU` activation layers and `Dropout` layers.  For 6 of the 7 target features, the outputs of this initial sequence will then be applied to additional `Linear` and `Bilinear` layers with the `X_delta_EPOCH` feature before adding in the original X values for the features.  For the `MEAN_ANOMALY` model, additional reference to `MEAN_MOTION` was used.  See [Appendix H. Neighboring Pair Model](#h-neighboring-pair-model) for details regarding the model structure.
 
 
 In perfect orbital conditions, `ARG_OF_PERICENTER`, `RA_OF_ASC_NODE`, `INCLINATION`, `ESSENTRICITY`, and `MEAN_MOTION` would remain unchanged.  In essence, the models are trying to predict the difference in the TLE pairs assuming the orbits were without perturbing.  Here is an example of how how the TLE values are envisioned in reference to the perfect orbit and ideal model predictions:
@@ -171,11 +164,6 @@ In perfect orbital conditions, `ARG_OF_PERICENTER`, `RA_OF_ASC_NODE`, `INCLINATI
 <sub><sup>*</sup> BSTAR would be 0 in perfect orbit, but in this case, reference TLE is used</sub><br />
 <sub><sup>#</sup> Before modulo `% 360` is applied</sub><br />
 <sub><sup>^</sup> After modulo `% 360` is applied</sub>
-
-
-[Back to Top](#table-of-contents)
-
----
 
 
 ## Evaluation
@@ -347,7 +335,7 @@ A TLE contains 14 fields, from this, only 9 of these are necessary for the SGP4 
 <p style="page-break-before: always"></p>
 
 ## B. Machine Learning Pipeline
-![Machine Learning Pipeline](images/ms2_nt_pipeline.png)
+<a href='https://cm-tle-pred.github.io/images/ms2_nt_pipeline_print.png'><img src='images/ms2_nt_pipeline.png'></a>
 <p align='center'><b>Figure B1</b>  Machine Learning Pipeline</p>
 
 ![Building Inputs and Outputs](images/xysplit.png)
@@ -429,27 +417,6 @@ class NNModelEx(nn.Module):
     def forward(self, X):
         return self.net(X)
 ```
-
-	NNModelEx(
-	  (net): Sequential(
-	    (0): Linear(in_features=X, out_features=300, bias=True)
-	    (1): ReLU()
-	    (2): Dropout(p=0.5, inplace=False)
-	    (3): Linear(in_features=300, out_features=100, bias=True)
-	    (4): ReLU()
-	    (5): Dropout(p=0.5, inplace=False)
-	    (6): Linear(in_features=100, out_features=10, bias=True)
-	    (7): ReLU()
-	    (8): Dropout(p=0.5, inplace=False)
-	    (9): Linear(in_features=10, out_features=10, bias=True)
-	    (10): ReLU()
-	    (11): Dropout(p=0.5, inplace=False)
-	    (12): Linear(in_features=10, out_features=10, bias=True)
-	    (13): ReLU()
-	    (14): Dropout(p=0.5, inplace=False)
-	    (15): Linear(in_features=10, out_features=Y, bias=True)
-	  )
-	)
 
 [Back to Top](#table-of-contents)
 
@@ -566,13 +533,9 @@ Below is a table showing details of the features added to the dataset.  While al
 
 [Back to Top](#table-of-contents)
 
--------
-
-
+<p style="page-break-before: always"></p>
 
 ## H. Neighboring Pair Model
-
-### Model diagrams
 
 #### Generic
 ![Generic](images/model_generic.png)
@@ -607,4 +570,14 @@ Below is a table showing details of the features added to the dataset.  While al
 
 [Back to Top](#table-of-contents)
 
--------
+
+<p style="page-break-before: always"></p>
+
+## I. Random Pair Model
+
+![Resnet28](images/model_resnet28.png)
+<p align='center'><b>Figure I1</b> ResNet28 Model</p>
+
+This model was based off the paper [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).
+
+[Back to Top](#table-of-contents)
