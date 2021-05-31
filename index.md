@@ -23,7 +23,7 @@ June 1, 2021
 	- [Outlier Removal](#outlier-removal)
 	- [Feature Engineering](#feature-engineering)
 - [Supervised Learning](#supervised-learning)
-	- [Workflow, Learning Methods and Feature Tuning](#workflow-learning-methods-and-feature-tuning)
+	- [Workflow, Learning Methods, and Feature Tuning](#workflow-learning-methods-and-feature-tuning)
 	- [Random Pair Model](#random-pair-model)
 		- [Preparing the Dataset](#preparing-the-dataset)
 		- [The Model](#the-model)
@@ -39,7 +39,7 @@ June 1, 2021
 	- [Mean Anomaly Data Representation](#mean-anomaly-data-representation)
 	- [Custom Loss Functions](#custom-loss-functions)
 	- [Additional DBSCAN Features](#additional-dbscan-features)
-	- [Hyperparameter tuning, Optimizers and Schedulers](#hyperparameter-tuning-optimizers-and-schedulers)
+	- [Hyperparameter tuning, Optimizers, and Schedulers](#hyperparameter-tuning-optimizers-and-schedulers)
 	- [Configurable/Flexible Model Creation](#configurableflexible-model-creation)
 	- [Model Saving, Loading, and Rollback](#model-saving-loading-and-rollback)
 - [Discussion](#discussion)
@@ -78,11 +78,11 @@ The general structure of a model was designed so that it would accept a single T
 
 ## Raw Data
 
-TLE data from the [Space-Track.org](https://www.space-track.org/) `gp_history` API was used for this project.  Roughly 150 million entries of historical TLE data was downloaded into approximately 1,500 CSV files for processing.  Another dataset was obtained by scraping the [International Laser Ranging Services](https://ilrs.gsfc.nasa.gov) website to identify a list of satellites that have more accurate positional readings that we could use as our final evaluation metric.  [Sunspot data](http://www.sidc.be/silso/datafiles) from the World Data Center SILSO, Royal Observatory of Belgium, Brussels was used to indicate solar activity.  [Temperature data](http://berkeleyearth.lbl.gov/auto/Global/Land_and_Ocean_complete.txt) was downloaded from Berkley Earth (Rohde, R. A. and Hausfather, Z.: The Berkeley Earth Land/Ocean Temperature, Record Earth Syst. Sci. Data, 12, 3469–3479, 2020).
+TLE data from the [Space-Track.org](https://www.space-track.org/) `gp_history` API was used for this project.  Roughly 150 million entries of historical TLE data were downloaded into approximately 1,500 CSV files for processing.  Another dataset was obtained by scraping the [International Laser Ranging Services](https://ilrs.gsfc.nasa.gov) website to identify a list of satellites that have more accurate positional readings that could be used as a final evaluation metric.  [Sunspot data](http://www.sidc.be/silso/datafiles) from the World Data Center SILSO, Royal Observatory of Belgium, Brussels was used to indicate solar activity.  [Temperature data](http://berkeleyearth.lbl.gov/auto/Global/Land_and_Ocean_complete.txt) was downloaded from Berkley Earth (Rohde, R. A. and Hausfather, Z.: The Berkeley Earth Land/Ocean Temperature, Record Earth Syst. Sci. Data, 12, 3469–3479, 2020).
 
 ## Pre-Processing
 
-After the raw data was collected, a list of Low Earth Orbit satellites was identified and split into training, testing, and validation sets utilizing a 70/15/15 split.  The split was done on a satellite level, where data from the same satellite would be grouped in the same set to prevent data leakage.  The list of satellites included in the ILRS dataset were also distributed across the testing and validation sets.  Due to the large amount of data, multiprocessing and multithreading were used to ensure speedier processing.
+After the raw data was collected, a list of Low Earth Orbit satellites was identified and split into training, testing, and validation sets utilizing a 70/15/15 split.  The split was done on a satellite level, where data from the same satellite would be grouped in the same set to prevent data leakage.  The list of satellites included in the ILRS dataset was also distributed across the testing and validation sets.  Due to the huge amount of data, multiprocessing and multithreading were used to ensure speedier processing.
 
 After the basic LEO filtering and splits, the training set still contained over 55 million rows of data.  Further filters were done to increase data integrity:
 
@@ -95,15 +95,15 @@ With these filters, the amount of data is further reduced by 5 million rows.
 
 ## Outlier Removal
 
-While the data which remained fell within the technical specifications, there were still some data that appeared to be outliers.  These data were likely to be misidentified as the wrong satellite or had suboptimal readings.  For more details on the outlier detection and removal, please read the [Unsupervised Learning](#unsupervised-learning) section.
+While the data which remained fell within the technical specifications, there were still some data that appeared to be outliers.  These data were likely to be misidentified as the wrong satellite or had suboptimal readings.  For more details on the outlier detection and removal methods, please read the [Unsupervised Learning](#unsupervised-learning) section.
 
 ## Feature Engineering
 
-A TLE contains only a few fields which are needed for SGP4 propagation ([Appendix A: What is a TLE](#a-what-is-a-tle)), however, to allow the models to achieve better accuracy, additional features were added to the dataset:
+A TLE contains only a few fields that are needed for SGP4 propagation ([Appendix A: What is a TLE](#a-what-is-a-tle)), however, to allow the models to achieve better accuracy, additional features were added to the dataset:
 
 * Some features, not part of the TLE data format, but were included in the Space-Track provided data, such as `SEMIMAJOR_AXIS`, `PERIOD`, `APOAPSIS`, `PERIAPSIS`, and `RCS_SIZE` were added back into the data sets.
 * Daily sunspot data with 1-day, 3-day, and 7-day rolling averages were added since solar activity has been found to increase satellite decay according to [Chen, Deng, Miller, 2021 "Orbital Congestion"](https://mads-hatters.github.io/).
-* Monthly air and water temperatures from the external datasets were also mapped back to each TLE according to their `EPOCH` day and month.  According to Brown et al. in their 2021 paper ["Future decreases in themospheric density in very low Earth orbit"](https://www.essoar.org/doi/10.1002/essoar.10505899.1), satellites decay is reduced as atmospheric temperature increases.
+* Monthly air and water temperatures from the external datasets were also mapped back to each TLE according to their `EPOCH` day and month.  According to Brown et al. in their 2021 paper ["Future decreases in themospheric density in very low Earth orbit"](https://www.essoar.org/doi/10.1002/essoar.10505899.1), satellite decay is reduced as atmospheric temperature increases.
 * Some features exhibited periodic waveform patterns.  Cartesian representations of these features were added as extra features.
 * Some features represented modulo values, pseudo reverse modulus representations were generated for these features so that their linear nature is represented.
 * Cartesian representation of position and velocity using the SGP4 algorithm were also added as additional features.
@@ -116,18 +116,18 @@ Please reference [Appendix G: Feature Engineering](#g-feature-engineering) for f
 
 # Supervised Learning
 
-## Workflow, Learning Methods and Feature Tuning
+## Workflow, Learning Methods, and Feature Tuning
 
-For the supervised section of the [machine learning pipeline](#b-machine-learning-pipeline), pytorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with a varying number of hidden layers and widths were then created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on the paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193) and a Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name. See [Appendix H. Neighboring Pair Model](#h-neighboring-pair-model) for more details on the bilinear model.  Due to the size of the training set, a subset of the training set was also used.  During this investigation, changes to data filtering were made to eliminate the training on bad data.  See [Appendix C. Simple Neural Network Investigation](#c-simple-neural-network-investigation) for further details.
+For the supervised section of the [machine learning pipeline](#b-machine-learning-pipeline), PyTorch was the library selected for building and training a model.  At first, a simple fully-connected network consisting of only one hidden layer was created and trained.  Deeper networks with a varying number of hidden layers and widths were then created, utilizing the ReLU activation function and dropout.  More advanced models were employed next including a regression version of a ResNet28 model based on the paper by [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193) and a Bilinear model was also created with the focus of correcting for the difference between the output feature and the input feature of the same name. See [Appendix H. Neighboring Pair Model](#h-neighboring-pair-model) for more details on the bilinear model.  Due to the size of the training set, a subset of the training set was also used.  During this investigation, changes to data filtering were made to eliminate the training on bad data.  See [Appendix C. Simple Neural Network Investigation](#c-simple-neural-network-investigation) for further details.
 
 In later models, Adam and AdamW optimizers were experimented with.  AdamW resulted in faster learning so was generally preferred.  Understanding that AdamW doesn't generalize as well as SGD, the volume of the data and utilizing dropout ensured there were no issues with overfitting.  At this stage, the models were starting to show some progress in capturing the shape of the data.  See [Appendix D. Models Learning Data Shape](#d-models-learning-data-shape).  To see how performance could be further improved, separate models were trained for each output feature.  This resulted in reduced loss and thus better capture of data shape.
 
-During training, the loss values were monitored and corrections were made to the learning rate to prevent overfitting and decrease model training times.  This required the automaic saving of models and evaluating at each epoch and then restoring models to previous versions when training went awry.
+During training, the loss values were monitored and corrections were made to the learning rate to prevent overfitting and decrease model training times.  This required the automatic saving of models and evaluating at each epoch and then restoring models to previous versions when training went awry.
 
 
 ## Random Pair Model
 
-The ideal model would accept a TLE for a satellite with any target `EPOCH` and predict the new TLE values and consistently produce a propagated result that represented a more accurate representation of the satellite's true postion and velocity.  Therefore, for this model variant and for a given satellite in a dataset, the TLEs were random paired together.  This resulted in the differences between the reference and target epochs to form a unimodal symmetric distribution centering near zero and expanding out in both directions where the extremes represented the differences between th maximum epoch and minimum epoch in the training set.
+The ideal model would accept a TLE for a satellite with any target `EPOCH` and predict the new TLE values and consistently produce a propagated result that represented a more accurate representation of the satellite's true position and velocity.  Therefore, for this model variant and for a given satellite in a dataset, the TLEs were random paired together.  This resulted in the differences between the reference and target epochs to form a unimodal symmetric distribution centering near zero and expanding out in both directions where the extremes represented the differences between the maximum epoch and minimum epoch in the training set.
 
 ### Preparing the Dataset
 
@@ -135,23 +135,23 @@ To generate the dataset, a method was created to generate index pairs where the 
 
 ### The Model
 
-A residual neural network was created by defining two different types of blocks.  Each block type consisted of three dense layers and a shortcut.  The first block type contained a dense layer for a shortcut which the second type use an identity layer for its shortcut.  A dense block followed by two identity blocks created a stack.  Three stacks were then used followed by one dense layer.  See [Appendix I. Random Pair Model](#i-random-pair-model) for a diagram and layer details.
+A residual neural network was created by defining two different types of blocks.  Each block type consisted of three dense layers and a shortcut.  The first block type contained a dense layer for a shortcut which the second type uses an identity layer for its shortcut.  A dense block followed by two identity blocks created a stack.  Three stacks were then used followed by one dense layer.  See [Appendix I. Random Pair Model](#i-random-pair-model) for a diagram and layer details.
 
 
 ## Neighboring Pair Model
 
-Another approach was explored where neighboring pairs of TLEs were used to generate the dataset instead of using random pairs.  The rationale behind this was that the SGP4 predictions were mostly useful up to a week or so depending on the task, so creating a dataset which only included TLE pairs within specific time interval ranges potentially lead to higher number and more relevant dataset to compare to the SGP4 baseline.
+Another approach was explored where neighboring pairs of TLEs were used to generate the dataset instead of using random pairs.  The rationale behind this was that the SGP4 predictions were mostly useful up to a week or so depending on the task, so creating a dataset which only included TLE pairs within specific time interval ranges potentially lead to larger and more relevant dataset to compare to the SGP4 baseline.
 
 ### Preparing the Dataset
 
-To generate the dataset, the TLE data was grouped based by satellite using their `NORAD_ID`s and an additional subgroup.  This additional subgroup was created to handle [`MEAN_ANOMALY` and `REV_AT_EPOCH` inconsistencies](#mean-anomaly-data-representation) in the data.  For each TLE entry in the subgroup, it was paired with up to the 20 next TLE entries in the subgroup if the difference in `EPOCH` was less than 14 days.  Additional features were created for `ARG_OF_PERICENTER`, `RA_OF_ASC_NODE`, `MEAN_ANOMALY` and `REV_AT_EPOCH` based on their [adjusted values](#g-feature-engineering) to represent what those values would have been without modulo being applied (for example, a `MEAN_ANOMALY` value from 200 after one revolution would still be 200 unadjusted, but 560 in this adjusted version), and combined with `BSTAR`, `INCLINATION`, `ESSENTRICITY`, and `MEAN_MOTION` as the target features for the models.
+To generate the dataset, the TLE data grouped satellite using their `NORAD_ID`s and an additional subgroup.  This additional subgroup was created to handle [`MEAN_ANOMALY` and `REV_AT_EPOCH` inconsistencies](#mean-anomaly-data-representation) in the data.  For each TLE entry in the subgroup, it was paired with up to the 20 next TLE entries in the subgroup if the difference in `EPOCH` was less than 14 days.  Additional features were created for `ARG_OF_PERICENTER`, `RA_OF_ASC_NODE`, `MEAN_ANOMALY`, and `REV_AT_EPOCH` based on their [adjusted values](#g-feature-engineering) to represent what those values would have been without modulo being applied (for example, a `MEAN_ANOMALY` value from 200 after one revolution would still be 200 unadjusted, but 560 in this adjusted version), and combined with `BSTAR`, `INCLINATION`, `ESSENTRICITY`, and `MEAN_MOTION` as the target features for the models.
 
 ### The Model
 
-The neural network consisted of 7 individually seperatable models.  For each model, the input data is fed through a sequence of `Linear` hidden layers, `ReLU` activation layers and `Dropout` layers.  For 6 of the 7 target features, the outputs of this initial sequence was then applied to additional `Linear` and `Bilinear` layers with the `X_delta_EPOCH` feature before adding in the original X values for the features.  For the `MEAN_ANOMALY` model, additional reference to `MEAN_MOTION` was used.  See [Appendix H. Neighboring Pair Model](#h-neighboring-pair-model) for details regarding the model structure.
+The neural network consisted of 7 individually separable  models.  For each model, the input data is fed through a sequence of `Linear` hidden layers, `ReLU` activation layers, and `Dropout` layers.  For 6 of the 7 target features, the outputs of this initial sequence were then applied to additional `Linear` and `Bilinear` layers with the `X_delta_EPOCH` feature before adding in the original X values for the features.  For the `MEAN_ANOMALY` model, additional reference to `MEAN_MOTION` was used.  See [Appendix H. Neighboring Pair Model](#h-neighboring-pair-model) for details regarding the model structure.
 
 
-In perfect orbital conditions, `ARG_OF_PERICENTER`, `RA_OF_ASC_NODE`, `INCLINATION`, `ESSENTRICITY`, and `MEAN_MOTION` would remain unchanged.  In essence, the models are trying to predict the difference in the TLE pairs assuming the orbits were without perturbing.  Here is an example of how how the TLE values are envisioned in reference to the perfect orbit and ideal model predictions:
+In perfect orbital conditions, `ARG_OF_PERICENTER`, `RA_OF_ASC_NODE`, `INCLINATION`, `ESSENTRICITY`, and `MEAN_MOTION` would remain unchanged.  In essence, the models are trying to predict the difference in the TLE pairs assuming the orbits were without perturbing.  Here is an example of how the TLE values are envisioned in reference to the perfect orbit and ideal model predictions:
 
 |  | Offset (days) | `ARG_OF_PERICENTER` | `RA_OF_ASC_NODE` | `INCLINATION` | `ESSENTRICITY` | `MEAN_MOTION` | `BSTAR` | `MEAN_ANOMALY` |
 |:-|:-|:-|:-|:-|:-|:-|:-|:-|
@@ -167,13 +167,13 @@ In perfect orbital conditions, `ARG_OF_PERICENTER`, `RA_OF_ASC_NODE`, `INCLINATI
 
 ## Evaluation
 
-Since the random model and neighbor model scope varied quite considerably, their results were not directly comparable.  Despite this, some comparions could be made that show the random model was better at predicting values further from the reference epoch while the neighbor model was better at predicting values closer to the reference epoch.  This is no surprise since the former was not restricted to a 14-day window like the latter.
+Since the random model and neighbor model scope varied quite considerably, their results were not directly comparable.  Despite this, some comparisons could be made that show the random model was better at predicting values further from the reference epoch while the neighbor model was better at predicting values closer to the reference epoch.  This is no surprise since the former was not restricted to a 14-day window like the latter.
 
 The random pairing models, while showing signs of convergence, converged much less quickly than the neighbor pairing models.  During this time, it was established that the training loss necessary to compete with the SGP4 propagation model needed to be on an order of `1e-8` or smaller.  Both model types were changed so that separate models would be trained for each output feature.  The random pairing model resulted in significant gains on reducing the loss but not at the level of the neighbor models.  For more details on the evaluation of the random pairing model's loss, see [Appendix E. Random Model Loss Evaluation](#e-random-model-loss-evaluation).
 
-Because certain outputs were not expected to change very much, for example the `INCLINATION` and `ECCENTRICITY`, a dummy output was created by using the reference TLE features as the output features.  Comparing the MSE of the dummy to the models shows that the dummy is still performing better than both the random and neighbor pairing model.  [Appendix J. Mean-Square Error by Epoch Difference](#j-mean-square-error-by-epoch-difference) shows more detail on this dummy comparison for both model types.
+Because certain outputs were not expected to change very much, for example, the `INCLINATION` and `ECCENTRICITY`, a dummy output was created by using the reference TLE features as the output features.  Comparing the MSE of the dummy to the models shows that the dummy is still performing better than both the random and neighbor pairing model.  [Appendix J. Mean-Square Error by Epoch Difference](#j-mean-square-error-by-epoch-difference) shows more detail on this dummy comparison for both model types.
 
-To further compare the two model types, each model created predicted TLE values for each reference TLE and target epoch from their test set.  The predicted values were then propagated to their target epoch using the SGP4 algorithm to get their `x`, `y`, `z` coordinates, thus creating *predicted satellite positions*.  These predicted coordinates were compared to the propagated result of using the reference TLE and target epoch in the SGP4 algorithm--the standard method for propagating to a target epoch when a TLE for the target epoch is unknown, thus creating *propagated satellite positions*.  The *ground truth satellite positions* were determined by propagating the ground truth TLE data to their epoch (i.e. target TLE and epoch).  The results show for both model types that the SGP4 algorithm is superior at achieving accurate predictions when the reference and target epoch difference is within 14 days.  At around +/- 250 days, the random pairing model starts to out perform the SGP4.  However, the error is still too great to be considered useful.  This and neighbor pair differences can be seen in more detail in [Appendix K. Satellite Position Difference Comparison](#k-satellite-position-difference-comparison).
+To further compare the two model types, each model created predicted TLE values for each reference TLE and target epoch from their test set.  The predicted values were then propagated to their target epoch using the SGP4 algorithm to get their `x`, `y`, `z` coordinates, thus creating *predicted satellite positions*.  These predicted coordinates were compared to the propagated result of using the reference TLE and target epoch in the SGP4 algorithm--the standard method for propagating to a target epoch when a TLE for the target epoch is unknown, thus creating *propagated satellite positions*.  The *ground truth satellite positions* were determined by propagating the ground truth TLE data to their epoch (i.e. target TLE and epoch).  The results show for both model types that the SGP4 algorithm is superior at achieving accurate predictions when the reference and target epoch difference is within 14 days.  At around +/- 250 days, the random pairing model starts to outperform the SGP4.  However, the error is still too great to be considered useful.  This and neighbor pair differences can be seen in more detail in [Appendix K. Satellite Position Difference Comparison](#k-satellite-position-difference-comparison).
 
 [Back to Top](#table-of-contents)
 
@@ -183,17 +183,17 @@ To further compare the two model types, each model created predicted TLE values 
 
 ## Motivation
 
-Due to the impact of outliers in TLE data on the supervised learning models, the use of unsupervised learning models were explored to remove these abnormal data from the training dataset before using them to train our neural network models.  Consistent patterns were observed in the first-order or second-order differences when examining data from the same satellite.  `DBSCAN` was selected to exploit this as regular data points are clustered together and data points which have abnoramlly large or small values relative to other data points in the series will be classified as outliers.
+Due to the impact of outliers in TLE data on the supervised learning models, the use of unsupervised learning models was explored to remove these abnormal data from the training dataset before using them to train our neural network models.  Consistent patterns were observed in the first-order or second-order differences when examining data from the same satellite.  `DBSCAN` was selected to exploit this as regular data points are clustered together and data points that have abnormally large or small values relative to other data points in the series will be classified as outliers.
 
 ## Unsupervised Learning Methods
 
-As data are highly correlated between samples from the same satellite, the raw TLE entries are first grouped by their `NORAD_ID` and then sorted in ascending order according to the `EPOCH`.  Then, the values for the first-order difference for `INCLINATION` and `ECCENTRICITY` used as inputs to `DBSCAN`.  The algorithm clusters similar values and isolated values with abnormally large jumps with its neighbors.
+As data are highly correlated between samples from the same satellite, the raw TLE entries are first grouped by their `NORAD_ID` and then sorted in ascending order according to the `EPOCH`.  Then, the values for the first-order difference for `INCLINATION` and `ECCENTRICITY` are used as inputs to `DBSCAN`.  The algorithm clusters similar values and isolated values with abnormally large jumps with its neighbors.
 
 Initially, a single `DBSCAN` model was created for both `INCLINATION` and `ECCENTRICITY` as input features, however, it was more reliant on how the normalization was done and was less sensitive to anomalies from a single feature.  Although it required more computation time, training separate `DBSCAN` models resulted in less data manipulation and better results once combined.
 
 As initial predictions for the neural networks were evaluated, additional `DBSCAN` models were created to eliminate outliers from `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE` by examining their second-order difference, resulting in a total of four `DBSCAN` models per satellite.
 
-Due to the large variance in size and values for individual satellites, the `min_sample` and `eps` parameters could not be static and must be dynamically adjusted for individual satellites.  To accommodate satellites with both small and large amount of data, the `min_sample` was set to require at least 20 samples or 1% of the total size of the data, whichever was greater.
+Due to the large variance in size and values for individual satellites, the `min_sample` and `eps` parameters could not be static and must be dynamically adjusted for individual satellites.  To accommodate satellites with both small and large amounts of data, the `min_sample` was set to require at least 20 samples or 1% of the total size of the data, whichever was greater.
 
 The `eps` parameter was tuned accordingly with the features characteristics.  A higher `eps` value would lead to the removal of more extreme outliers, while a lower `eps` could potentially remove borderline but valid values.  Ultimately, 3 times the standard deviation of the first-order difference was used for `INCLINATION` and `ECCENTRICITY`, and the standard deviation of the second-order difference was used for `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE`.
 
@@ -214,7 +214,7 @@ On examining these false positives, it was decided that these were tolerable, as
 
 ## Mean Anomaly Data Representation
 
-The `MEAN_ANOMALY` has two very interesting traits which makes it extremely problematic to predict properly without the help of other features.  Firstly, the `MEAN_ANOMALY` value is between 0-360, representing its position along an orbit.  However, satellites in Low Earth Orbit typically orbits the Earth every 90 to 120 minutes, resulting in the value wrapping around 12 to 16 times a day.  With most satellites only having one or two TLE entries per day, these observations are considered very sparse.  To complicate matters further, these values are only reported at very specific values over time, perhaps due to the observation stations physical position on Earth and when the satellites passes overhead.  The following diagram demonstrates this problem.  The red points are actual observed data and the grey line covers where the values would be if an observation was made.
+The `MEAN_ANOMALY` has two very interesting traits which make it extremely problematic to predict properly without the help of other features.  Firstly, the `MEAN_ANOMALY` value is between 0-360, representing its position along an orbit.  However, satellites in Low Earth Orbit typically orbits the Earth every 90 to 120 minutes, resulting in the value wrapping around 12 to 16 times a day.  With most satellites only having one or two TLE entries per day, these observations are considered very sparse.  To complicate matters further, these values are only reported at very specific values over time, perhaps due to the observation stations' physical position on Earth and when the satellites pass overhead.  The following diagram demonstrates this problem.  The red points are actual observed data and the grey line covers where the values would be if an observation was made.
 
 ![Mean anomaly challenge](images/mean_anomaly_challenge.png)
 
@@ -222,15 +222,15 @@ Without knowing what the data is supposed to look like, it is very easy to fit a
 
 ## Custom Loss Functions
 
-Custom loss functions were explored due to undetected data inconsistencies.  For example, when calculating the `REV_MA` feature, `REV_AT_EPOCH` value that's off by 1 will result in a `REV_MA` value that is off by 360.  With known issues related to `REV_AT_EPOCH` where 100,000 is represented as 10,000 instead of 0, when rolling over and when multiple ground stations representing inconsistent `REV_AT_EPOCH` values, a prediction that is correct can potentially have a huge loss due to the incorrect targets.  Variants of L1 and L2 loss functions where only the best 75% and 95% predictions were tested.  A version of the 75% L2 loss resulted in the best overall accuracy for `REV_MA` predictions.
+Custom loss functions were explored due to undetected data inconsistencies.  For example, when calculating the `REV_MA` feature, a `REV_AT_EPOCH` value that's off by 1 will result in a `REV_MA` value that is off by 360.  With known issues related to `REV_AT_EPOCH` where 100,000 is represented as 10,000 instead of 0, when rolling over and when multiple ground stations representing inconsistent `REV_AT_EPOCH` values, a prediction that is correct can potentially have a huge loss due to the incorrect targets.  Variants of L1 and L2 loss functions where only the best 75% and 95% predictions were tested.  A version of the 75% L2 loss resulted in the best overall accuracy for `REV_MA` predictions.
 
 ## Additional DBSCAN Features
 
-In the earlier versions of the Neighboring Pairs Model, the `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE` loss was converging quickly but remained very high.  Upon inspecting the data which resulted in poor predictions, outliers were spotted in these features.  The `DBSCAN` anomaly detection part of the pipeline was revisited with the addition of these features, and ultimately improved the loss by two orders of magnitude.
+In the earlier versions of the Neighboring Pairs Model, the `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE` loss was converging quickly but remained very high.  Upon inspecting the data which resulted in poor predictions, outliers were spotted in these features.  The `DBSCAN` anomaly detection part of the pipeline was revisited with the addition of these features and ultimately improved the loss by two orders of magnitude.
 
-## Hyperparameter tuning, Optimizers and Schedulers
+## Hyperparameter tuning, Optimizers, and Schedulers
 
-One of the biggest challenges was a vanishing gradient where a model's loss would exponentially decay.  To address this problem, tuning of the learning rate was the first counter action.  Different model architectures were then explored: deeper and narrower, shallower and wider, bilinear and ResNet28.  After reading [Loshchilov & Hutter's paper "Decoupled Weight Decay Regularization"](https://arxiv.org/abs/1711.05101), different optimizers were tested and mostly settling on AdamW while always circling back to turning other hyperparameters like learning rate and model architecture.  Some success was also achieved with using the OneCycle scheduler that increases and then decreases the learning rate over each batch introduced by [Smith L. & Topin N. in their 2018 paper "Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates"](https://arxiv.org/abs/1708.07120).  More details can be seen in [Appendix E. Random Model Loss Evaluation](#e-random-model-loss-evaluation).
+One of the biggest challenges was a vanishing gradient where a model's loss would exponentially decay.  To address this problem, tuning the learning rate was the first counter action.  Different model architectures were then explored: deeper and narrower, shallower and wider, bilinear and ResNet28.  After reading [Loshchilov & Hutter's paper "Decoupled Weight Decay Regularization"](https://arxiv.org/abs/1711.05101), different optimizers were tested and mostly settling on AdamW while always circling back to turning other hyperparameters like learning rate and model architecture.  Some success was also achieved by using the OneCycle scheduler that increases and then decreases the learning rate over each batch introduced by [Smith L. & Topin N. in their 2018 paper "Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates"](https://arxiv.org/abs/1708.07120).  More details can be seen in [Appendix E. Random Model Loss Evaluation](#e-random-model-loss-evaluation).
 
 
 ## Configurable/Flexible Model Creation
@@ -239,7 +239,7 @@ Because of the frequent experimentation of different model architectures, a conv
 
 ## Model Saving, Loading, and Rollback
 
-When exploring different neural network architectures as well as choice of loss function and optimizer hyperparameters, there was a need for loading models which were trained in previous sessions, or to roll back current iterations to an earlier epoch when experiments failed.  Manually saving and loading files was tedius and prone to human errors, and a system was developed to automatically save the model, epoch and loss history, loss function, and optimizer whenever a new epoch is completed.  When the model performance was deemed not satisfactory, an automatic rollback to the previous best version could be triggered. Manual loading to a previous state of the model was also supported by this system.  These enhancements allowed for quick iterative tuning of hyperparameters and also prevented loss of progress when the training process encountered errors.
+When exploring different neural network architectures as well as the choice of loss function and optimizer hyperparameters, there was a need for loading models which were trained in previous sessions, or to roll back current iterations to an earlier epoch when experiments failed.  Manually saving and loading files was tedious and prone to human errors, and a system was developed to automatically save the model, epoch and loss history, loss function, and optimizer whenever a new epoch is completed.  When the model performance was deemed not satisfactory, an automatic rollback to the previous best version could be triggered. Manual loading to a previous state of the model was also supported by this system.  These enhancements allowed for quick iterative tuning of hyperparameters and also prevented loss of progress when the training process encountered errors.
 
 [Back to Top](#table-of-contents)
 
@@ -582,7 +582,7 @@ Below is a table showing details of the features added to the dataset.  While al
 ![Resnet28](images/model_resnet28.png)
 <p align='center'><b>Figure I1</b> ResNet28 used for Random Pair Model</p>
 
-This model was based off the paper [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).
+This model was based on the paper [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).
 
 [Back to Top](#table-of-contents)
 
@@ -591,17 +591,17 @@ This model was based off the paper [Chen D. et al, 2020 "Deep Residual Learning 
 
 ## J. Mean-Square Error by Epoch Difference
 
-The mean squared error (MSE) for the random model and neighbor model are shown below when the epoch difference between the reference epoch and the target epoch is normalized and binned.  Plotted with the prediction's MSE is also the `X` label data MSE (reference TLE values relabeled as output).  This was used a baseline since each TLE's ground truth values are comparable to the input data.
+The mean squared error (MSE) for the random model and the neighbor model are shown below when the epoch difference between the reference epoch and the target epoch is normalized and binned.  Plotted with the prediction's MSE is also the `X` label data MSE (reference TLE values relabeled as output).  This was used as a baseline since each TLE's ground truth values are comparable to the input data.
 
 ![MSE of Random Model](images/eval_mse_epoch_diff_rand.png)
 <p align='center'><b>Figure J1</b> Random Model</p>
 
-In Figure J1, the x-axis ranges from `-1` to `1`.  If a reference TLE epoch was in `2021` and a target epoch was in `1990`, the epoch diff would be near `1`.   If these were flipped, it would be near `-1`.  If the reference and target epochs were within the same year, they would be closer to `0`.  The top barchart is a count of records that had a epoch difference in that bin.  This model was rather consistent in underperforming against the baseline with the exception being the `RA_OF_ASC_NODE`.
+In Figure J1, the x-axis ranges from `-1` to `1`.  If a reference TLE epoch was in `2021` and a target epoch was in `1990`, the epoch diff would be near `1`.   If these were flipped, it would be near `-1`.  If the reference and target epochs were within the same year, they would be closer to `0`.  The top bar chart is a count of records that had an epoch difference in that bin.  This model was rather consistent in underperforming against the baseline with the exception being the `RA_OF_ASC_NODE`.
 
 ![MSE of Random Model](images/eval_mse_epoch_diff_neigh.png)
 <p align='center'><b>Figure J2</b> Neighbor Model</p>
 
-In Figure J2, the x-axis ranges from `0` to `2`.  If a reference TLE epoch was `7` days before a target epoch, the epoch diff would be near `1`, hence a difference of `14` days would give a value of `2`.  If the reference and target epoch were on the same day, they would be closer to `0` This model only trained on future dates so negative values were not possible.  The top barchart is a count of records that had a epoch difference in that bin.  This model learned to use the inputs as the outputs.
+In Figure J2, the x-axis ranges from `0` to `2`.  If a reference TLE epoch was `7` days before a target epoch, the epoch diff would be near `1`, hence a difference of `14` days would give a value of `2`.  If the reference and target epoch were on the same day, they would be closer to `0` This model only trained on future dates so negative values were not possible.  The top bar chart is a count of records that had an epoch difference in that bin.  This model learned to use the inputs as the outputs.
 
 [Back to Top](#table-of-contents)
 
@@ -609,7 +609,7 @@ In Figure J2, the x-axis ranges from `0` to `2`.  If a reference TLE epoch was `
 
 ## K. Satellite Position Difference Comparison
 
-Satellites position is calculated by providing a TLE with a reference epoch and a target epoch into the SGP4 algorithm.  To create the following graphs, a *propagated positions*, *predicted positions*, and *ground truth positions* were calculated by applying SGP4 on the target epoch to the reference TLE, predicted TLE, and target TLE resprectively.  Each graph is the straight-line distance between either the *propagated postiions* (from X) or the *predicted positions* to the *ground truth positions*.
+Satellites position is calculated by providing a TLE with a reference epoch and a target epoch into the SGP4 algorithm.  To create the following graphs, a *propagated positions*, *predicted positions*, and *ground truth positions* were calculated by applying SGP4 on the target epoch to the reference TLE, predicted TLE, and target TLE respectively.  Each graph is the straight-line distance between either the *propagated postions* (from X) or the *predicted positions* to the *ground truth positions*.
 
 ![XYZ Difference Random Model 1:1](images/xyz_diff_rand_n5.png)
 <p align='center'><b>Figure K1</b> XYZ Difference Random Pair Model (1 model/output)</p>
