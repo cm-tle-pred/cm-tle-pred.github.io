@@ -590,17 +590,17 @@ This model was based off the paper [Chen D. et al, 2020 "Deep Residual Learning 
 
 ## J. Mean-Square Error by Epoch Difference
 
-The mean squared error (MSE) for the random model and neighbor model are shown below when the epoch difference between the reference epoch and the target epoch is normalized and binned.  Plotted with the prediction's MSE is the `X` label data MSE (reference TLE values relabeled as output).  This was used a baseline since each TLE's ground truth values are comparable to the input data.
+The mean squared error (MSE) for the random model and neighbor model are shown below when the epoch difference between the reference epoch and the target epoch is normalized and binned.  Plotted with the prediction's MSE is also the `X` label data MSE (reference TLE values relabeled as output).  This was used a baseline since each TLE's ground truth values are comparable to the input data.
 
 ![MSE of Random Model](images/eval_mse_epoch_diff_rand.png)
 <p align='center'><b>Figure J1</b> Random Model</p>
 
-In Figure J1, the x-axis ranges from `-1` to `1`.  If a reference TLE epoch was in `2021` and a target epoch was in `1990`, the epoch diff would be near `1`.   If these were flipped, it would be near `-1`.  If the reference and target epochs were within the same year, they would be closer to `0`.  The top barchart is a count of records that had a epoch difference in that bin.
+In Figure J1, the x-axis ranges from `-1` to `1`.  If a reference TLE epoch was in `2021` and a target epoch was in `1990`, the epoch diff would be near `1`.   If these were flipped, it would be near `-1`.  If the reference and target epochs were within the same year, they would be closer to `0`.  The top barchart is a count of records that had a epoch difference in that bin.  This model was rather consistent in underperforming against the baseline with the exception being the `RA_OF_ASC_NODE`.
 
 ![MSE of Random Model](images/eval_mse_epoch_diff_neigh.png)
 <p align='center'><b>Figure J2</b> Neighbor Model</p>
 
-In Figure J2, the x-axis ranges from `0` to `2`.  If a reference TLE epoch was `7` days before a target epoch, the epoch diff would be near `1`, hence a difference of `14` days would give a value of `2`.  If the reference and target epoch were on the same day, they would be closer to `0` This model only trained on future dates so negative values were not possible.  The top barchart is a count of records that had a epoch difference in that bin.
+In Figure J2, the x-axis ranges from `0` to `2`.  If a reference TLE epoch was `7` days before a target epoch, the epoch diff would be near `1`, hence a difference of `14` days would give a value of `2`.  If the reference and target epoch were on the same day, they would be closer to `0` This model only trained on future dates so negative values were not possible.  The top barchart is a count of records that had a epoch difference in that bin.  This model learned to use the inputs as the outputs.
 
 [Back to Top](#table-of-contents)
 
@@ -608,7 +608,7 @@ In Figure J2, the x-axis ranges from `0` to `2`.  If a reference TLE epoch was `
 
 ## K. Satellite Position Difference Comparison
 
-Satellites position is calculated by providing a TLE with a reference epoch and a target epoch into the SGP4 algorithm.
+Satellites position is calculated by providing a TLE with a reference epoch and a target epoch into the SGP4 algorithm.  To create the following graphs, a *propagated positions*, *predicted positions*, and *ground truth positions* were calculated by applying SGP4 on the target epoch to the reference TLE, predicted TLE, and target TLE resprectively.  Each graph is the straight-line distance between either the *propagated postiions* (from X) or the *predicted positions* to the *ground truth positions*.
 
 ![XYZ Difference Random Model 1:1](images/xyz_diff_rand_n5.png)
 <p align='center'><b>Figure K1</b> XYZ Difference Random Model (1 model/output)</p>
