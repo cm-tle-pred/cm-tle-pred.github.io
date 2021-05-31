@@ -51,11 +51,13 @@ June 1, 2021
 	- [B. Machine Learning Pipeline](#b-machine-learning-pipeline)
 	- [C. Simple Neural Network Investigation](#c-simple-neural-network-investigation)
 	- [D. Models Learning Data Shape](#d-models-learning-data-shape)
-	- [E. Model Evaluation of Loss for N Models](#e-model-evaluation-of-loss-for-n-models)
+	- [E. Random Model Loss Evaluation](#e-random-model-loss-evaluation)
 	- [F. Anomaly Detection with DBSCAN](#f-anomaly-detection-with-dbscan)
 	- [G. Feature Engineering](#g-feature-engineering)
 	- [H. Neighboring Pair Model](#h-neighboring-pair-model)
 	- [I. Random Pair Model](#i-random-pair-model)
+	- [J. Mean-Square Error by Epoch Difference](#j-mean-square-error-by-epoch-difference)
+	- [K. Satellite Position Difference Comparison](#k-satellite-position-difference-comparison)
 
 <!-- /TOC -->
 
@@ -167,26 +169,19 @@ In perfect orbital conditions, `ARG_OF_PERICENTER`, `RA_OF_ASC_NODE`, `INCLINATI
 
 
 ## Evaluation
-> * Provide a correct and comprehensive evaluation, analyzing the effectiveness of both your methods, and your feature representations. Methods include e.g. ablation tests to identify important features, hyperparameter sensitivity, and training data curves. This should be done for each learning framework and representation choice, together with a valid and effective comparison between the chosen approaches.
-> * Which features were most important and why?
-> * What important tradeoffs can you identify?
-> * How sensitive are your results to choice of parameters, features, or other varying solution elements?
 
-*Mean square error on the baseline models’ predictions will be used as benchmarks for evaluation.  We will also consider using a custom loss function on predicted spatial x, y, z positions.  To visualize the model's effectiveness, we can plot propagated satellite positions using the SGP4, our baseline models, the DNN model against the true dataset (other TLEs) together in 3D.  Visualizing the errors for the models based on individual feature variances will also show where the strengths and weaknesses of the models lie.*
+Since the random model and neighbor model scope varied quite considerably, their results were not directly comparable.  Despite this, some comparions could be made that show the random model was better at predicting values further from the reference epoch while the neighbor model was better at predicting values closer to the reference epoch.  This is no surprise since the former was not restricted to a 14-day window like the latter.
 
----
-The model evaluations took place on two different sets of training data that were assembled differently based on the raw training data.  In one approach, we'll call the `N` models, each TLE input was paired with a random TLE output for the same satellite.  This resulted in two TLEs (an input and an output) that would have a random time difference between them spanning days, weeks, or even years apart.  In another approach, we'll call the `T` models, each TLE input for a satellite was paired with its sisters resulting in a larger training set but then reduced by limiting their time difference to 14 days.  See [Appendix B. Machine Learning Pipeline](#b-machine-learning-pipeline) for more details.
+The random pairing models, while showing signs that convergence, converged much less quickly than the neighbor pairing models.  During this time, it was established that the training loss necessary to compete with the SGP4 propagation model needed to be on an order of `1e-8` or smaller.  Both model types were changed so that separate models would be trained for each output feature.  The random pairing model resulted in significant gains on reducing the loss but not at the level of the `T` models.  For more details on the evaluation of the random pairing model's loss, see [Appendix E. Random Model Loss Evaluation](#e-random-model-loss-evaluation).
 
-The `N` models, while showing signs that convergence, converged much less quickly than the `T` models.  During this time, it was established that the training loss necessary to compete with the SGP4 propagation model needed to be on an order of `1e-8` or smaller.  The `N` and `T` models were changed so that separate models would be trained for each output feature.  The `N` models did show some major improvement but not at the level of the `T` models.  For more details, please see Appendix [E. Model Evaluation of Loss for N Models](#e-model-evaluation-of-loss-for-n-models).
+Because certain outputs were not expected to change very much, for example the `INCLINATION` and `ECCENTRICITY`, a dummy output was created by using the reference TLE features as the output features.  Comparing the MSE of the dummy to the models shows that the dummy is still performing better than both the random and neighbor pairing model.  [Appendix J. Mean-Square Error by Epoch Difference](#j-mean-square-error-by-epoch-difference) shows more detail on this dummy comparison for both model types.
 
-
-
-
+To further compare the two model types, each model created predicted TLE values for each reference TLE and target epoch from their test set.  The predicted values were then propagated to their target epoch using the SGP4 algorithm to get their `x`, `y`, `z` coordinates, thus creating *predicted satellite positions*.  These predicted coordinates were compared to the propagated result of using the reference TLE and target epoch in the SGP4 algorithm--the standard method for propagating to a target epoch when a TLE for the target epoch is unknown, thus creating *propagated satellite positions*.  The *ground truth satellite positions* were determined by propagating the ground truth TLE data to their epoch (i.e. target TLE and epoch).  The results show for both model types that the SGP4 algorithm is superior at achieving accurate predictions when the reference and target epoch difference is within 14 days.  At around +/- 250 days, the random pairing model starts to out perform the SGP4.  However, the error is still too great to be considered useful.  This and neighbor pair differences can be seen in more detail in [Appendix K. Satellite Position Difference Comparison](#k-satellite-position-difference-comparison).
 
 
 ## Failure Analysis
 > * Select three examples where prediction failed, and analyse why. You should be able to find at least three different types of failure.
-Talk here about copying X values
+Talk here about copying X valuesdd
 
 [Back to Top](#table-of-contents)
 
@@ -441,7 +436,7 @@ Zooming in on a 1-year period of the previous makes the error more observable.
 
 <p style="page-break-before: always"></p>
 
-## E. Model Evaluation of Loss for N Models
+## E. Random Model Loss Evaluation
 
 Below is a table showing the optimum loss achieved at 25 epochs for each model evolution.
 
@@ -458,14 +453,22 @@ Below is a table showing the optimum loss achieved at 25 epochs for each model e
 Within each model evolution, hyperparameter tuning took place resulting in various loss trails.
 
 ![N1 Loss](images/n1_loss.png)
-![N2 Loss](images/n2_loss.png)
-![N3 Loss](images/n3_loss.png)
-![N4 Loss](images/n4_loss.png)
+<p align='center'><b>Figure E1</b> <i>Version 1</i> First iteration of ResNet28 model</p>
 
-From this point, a separate model was trained for each output feature.
+![N2 Loss](images/n2_loss.png)
+<p align='center'><b>Figure E2</b> <i>Version 2</i> Switched from SGD to Adam optimizer</p>
+
+![N3 Loss](images/n3_loss.png)
+<p align='center'><b>Figure E3</b> <i>Version 3</i> Switched from Adam to AdamW optimizer</p>
+
+![N4 Loss](images/n4_loss.png)
+<p align='center'><b>Figure E4</b> <i>Version 4</i> Experimented with a "multi-net" model consisting of six<br>parallel ResNet28 each with a single output.</p>
 
 ![N5 Loss](images/n5_loss.png)
+<p align='center'><b>Figure E5</b> <i>Version 5</i> Switched to single output models</p>
+
 ![N5 Loss for Inclination](images/n5_loss_incl.png)
+<p align='center'><b>Figure E6</b> <i>Version 5</i> Focused on hyperparameter tuning for <code>INCLINATION</code></p>
 
 
 [Back to Top](#table-of-contents)
@@ -558,7 +561,7 @@ Below is a table showing details of the features added to the dataset.  While al
 #### Model Performance and Configurations
 
 | Model | Optimizer (final parameter) | Loss Function | Holdout Loss |
-|:-|:-|:-|:-|
+|:-|:-|:-|-:|
 | INCLINATION | AdamW (lr: 1e-09, weight_decay: 0.057) | MSE | 7.591381967486655e-10 |
 | ECCENTRICITY | AdamW (lr: 1e-08, weight_decay: 0.05) | MSE | 3.299049993188419e-07 |
 | MEAN_MOTION | AdamW (lr: 1e-08, weight_decay: 0.001) | MSE | 8.657459881687503e-07 |
@@ -576,8 +579,42 @@ Below is a table showing details of the features added to the dataset.  While al
 ## I. Random Pair Model
 
 ![Resnet28](images/model_resnet28.png)
-<p align='center'><b>Figure I1</b> ResNet28 Model</p>
+<p align='center'><b>Figure I1</b> ResNet28 used for Random Pair Model</p>
 
 This model was based off the paper [Chen D. et al, 2020 "Deep Residual Learning for Nonlinear Regression"](https://www.mdpi.com/1099-4300/22/2/193).
 
 [Back to Top](#table-of-contents)
+
+
+<p style="page-break-before: always"></p>
+
+## J. Mean-Square Error by Epoch Difference
+
+The mean squared error (MSE) for the random model and neighbor model are shown below when the epoch difference between the reference epoch and the target epoch is normalized and binned.  Plotted with the prediction's MSE is the `X` label data MSE (reference TLE values relabeled as output).  This was used a baseline since each TLE's ground truth values are comparable to the input data.
+
+![MSE of Random Model](images/eval_mse_epoch_diff_rand.png)
+<p align='center'><b>Figure J1</b> Random Model</p>
+
+In Figure J1, the x-axis ranges from `-1` to `1`.  If a reference TLE epoch was in `2021` and a target epoch was in `1990`, the epoch diff would be near `1`.   If these were flipped, it would be near `-1`.  If the reference and target epochs were within the same year, they would be closer to `0`.  The top barchart is a count of records that had a epoch difference in that bin.
+
+![MSE of Random Model](images/eval_mse_epoch_diff_neigh.png)
+<p align='center'><b>Figure J2</b> Neighbor Model</p>
+
+In Figure J2, the x-axis ranges from `0` to `2`.  If a reference TLE epoch was `7` days before a target epoch, the epoch diff would be near `1`, hence a difference of `14` days would give a value of `2`.  If the reference and target epoch were on the same day, they would be closer to `0` This model only trained on future dates so negative values were not possible.  The top barchart is a count of records that had a epoch difference in that bin.
+
+[Back to Top](#table-of-contents)
+
+<p style="page-break-before: always"></p>
+
+## K. Satellite Position Difference Comparison
+
+Satellites position is calculated by providing a TLE with a reference epoch and a target epoch into the SGP4 algorithm.
+
+![XYZ Difference Random Model 1:1](images/xyz_diff_rand_n5.png)
+<p align='center'><b>Figure K1</b> XYZ Difference Random Model (1 model/output)</p>
+
+![XYZ Difference Random Model 1:N](images/xyz_diff_rand_n3.png)
+<p align='center'><b>Figure K2</b> XYZ Difference Random Model (1 model for all outputs)</p>
+
+![XYZ Difference Neighbor Model (full)](images/xyz_diff_neigh_full.png)
+<p align='center'><b>Figure K3</b> XYZ Difference Neighbor Model</p>
