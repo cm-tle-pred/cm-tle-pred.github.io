@@ -247,12 +247,13 @@ When exploring different neural network architectures as well as choice of loss 
 
 
 # Discussion
-> * What did you l earn from doing Part A? What surprised you about your results? How could you extend your solution with more time/resources?
-> * What did you l earn from doing Part B? What surprised you about your results? How could you extend your solution with more time/resources?
-> * What ethical i ssues could arise i n providing a solution to Part A, and how could you address them?
-> * What ethical i ssues could arise i n providing a solution to Part B, and how could you address them?
 
-It was learned that SGP4 algorithm is very accurate and its very challenging to build a model that is at par with what the scientific equations already produce.
+When working on the supervised learning part, one thing that surprised us was how accurate the SGP4 baseline appeared to be, knowing that the data seemed noisy and inconsistent.  What we had not realized when we selected SGP4 propagation as our baseline was that the TLE format represented *mean* element values over a period of time, so the value represented at `EPOCH` is not without errors.  We also ignored the fact that TLE and SGP4 were developed together, with SGP4 sacrificing some accuracy at initial `EPOCH` for better propagation accuracy.  Ultimately, we assumed that both our `X` and `y` data was a perfect representation of a satellite's position at initial and target `EPOCH`, but in reality, due to the SGP4 algorithm, there were invisible errors that were exposed to our models which were not exposed to the SGP4 baseline.  With more time and resources, we could use positioning data that are not derived from TLE or SGP4, such as the ILRS dataset to have a more accurate error representation for the baseline and our models.
+
+With the anomaly detection for unsupervised learning, clustering techniques worked better than expected, but there were still some edge cases which the clustering algorithm could not handle properly.  Currently, our unsupervised model does not take time into consideration, and while TLE data from Space-Track generally have consistent frequencies and intervals, sometimes there are instances where a satellite would not have any data for an extended period of time.  As discussed in the unsupervised learning section, these would become outliers due to a huge delta over time.  We explored normalizing the diff values based on the time interval between data points, but the results were not satisfactory.  We did not explore further as the results without normalization appeared acceptable, however, with more time and resources, we should be able to eliminate some false positives with proper normalization using time interval differences.
+
+Since some edge cases did outperform the SGP4 propagation, especially as the epoch difference grew, it is plausible that these models might be used to predict satellite positions in cherry-picked situations.  However, we find this to be unethical given the overall performance of the models.  SGP4 propagation at this point is still more consistent and predictable than our models and using our models could result in significant errors in judgment.
+
 
 [Back to Top](#table-of-contents)
 
