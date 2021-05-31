@@ -31,17 +31,16 @@ June 1, 2021
 		- [Preparing the Dataset](#preparing-the-dataset)
 		- [The Model](#the-model)
 	- [Evaluation](#evaluation)
-	- [Failure Analysis](#failure-analysis)
 - [Unsupervised Learning](#unsupervised-learning)
 	- [Motivation](#motivation)
 	- [Unsupervised Learning Methods](#unsupervised-learning-methods)
 	- [Unsupervised Evaluation](#unsupervised-evaluation)
-- [Challenges and Solutions](#challenges-and-solutions)
+- [Failure Analysis, Challenges, and Solutions](#failure-analysis-challenges-and-solutions)
 	- [Mean Anomaly Data Representation](#mean-anomaly-data-representation)
 	- [Custom Loss Functions](#custom-loss-functions)
 	- [Additional DBSCAN Features](#additional-dbscan-features)
-	- [Loss + Optimizers parameter optimization with Schedulers [NICK]](#loss-optimizers-parameter-optimization-with-schedulers-nick)
-	- [Configurable flexible model creation [NICK]](#configurable-flexible-model-creation-nick)
+	- [Loss + Optimizers parameter optimization with Schedulers](#loss-optimizers-parameter-optimization-with-schedulers)
+	- [Configurable flexible model creation](#configurable-flexible-model-creation)
 	- [Model Saving, Loading, and Rollback](#model-saving-loading-and-rollback)
 - [Discussion](#discussion)
 - [Statement of Work](#statement-of-work)
@@ -178,11 +177,6 @@ Because certain outputs were not expected to change very much, for example the `
 
 To further compare the two model types, each model created predicted TLE values for each reference TLE and target epoch from their test set.  The predicted values were then propagated to their target epoch using the SGP4 algorithm to get their `x`, `y`, `z` coordinates, thus creating *predicted satellite positions*.  These predicted coordinates were compared to the propagated result of using the reference TLE and target epoch in the SGP4 algorithm--the standard method for propagating to a target epoch when a TLE for the target epoch is unknown, thus creating *propagated satellite positions*.  The *ground truth satellite positions* were determined by propagating the ground truth TLE data to their epoch (i.e. target TLE and epoch).  The results show for both model types that the SGP4 algorithm is superior at achieving accurate predictions when the reference and target epoch difference is within 14 days.  At around +/- 250 days, the random pairing model starts to out perform the SGP4.  However, the error is still too great to be considered useful.  This and neighbor pair differences can be seen in more detail in [Appendix K. Satellite Position Difference Comparison](#k-satellite-position-difference-comparison).
 
-
-## Failure Analysis
-> * Select three examples where prediction failed, and analyse why. You should be able to find at least three different types of failure.
-Talk here about copying X valuesdd
-
 [Back to Top](#table-of-contents)
 
 ---
@@ -218,7 +212,7 @@ On examining these false positives, it was decided that these were tolerable, as
 ---
 
 
-# Challenges and Solutions
+# Failure Analysis, Challenges, and Solutions
 
 ## Mean Anomaly Data Representation
 
@@ -236,22 +230,18 @@ Custom loss functions were explored due to undetected data inconsistencies.  For
 
 In the earlier versions of the Neighboring Pairs Model, the `ARG_OF_PERICENTER` and `RA_OF_ASC_NODE` loss was converging quickly but remained very high.  Upon inspecting the data which resulted in poor predictions, outliers were spotted in these features.  The `DBSCAN` anomaly detection part of the pipeline was revisited with the addition of these features, and ultimately improved the loss by two orders of magnitude.
 
-## Loss + Optimizers parameter optimization with Schedulers [NICK]
+## Loss + Optimizers parameter optimization with Schedulers
 
-> TIM NOTE: copied from older section
-
-Our biggest challenge was a vanishing gradient where our models loss would exponentially decay.  To address this problem, we would first look at tuning the learning rate.  We then explored different model architectures: deeper and narrower, shallower and wider, bilinear and ResNet28.  After reading [Loshchilov & Hutter's paper "Decoupled Weight Decay Regularization"](https://arxiv.org/abs/1711.05101), we explorered different optimizers and mostly settling on AdamW while always circling back to turning other hyperparameters like learning rate and model architecture.  We also had some success using the OneCycle scheduler that increases and then decreases the learning rate over each batch introduced by [Smith L. & Topin N. in their 2018 paper "Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates"](https://arxiv.org/abs/1708.07120).
+One of the biggest challenges was a vanishing gradient where a model's loss would exponentially decay.  To address this problem, tuning of the learning rate was the first counter action.  Different model architectures were then explored: deeper and narrower, shallower and wider, bilinear and ResNet28.  After reading [Loshchilov & Hutter's paper "Decoupled Weight Decay Regularization"](https://arxiv.org/abs/1711.05101), different optimizers were tested and mostly settling on AdamW while always circling back to turning other hyperparameters like learning rate and model architecture.  Some success was also achieved with using the OneCycle scheduler that increases and then decreases the learning rate over each batch introduced by [Smith L. & Topin N. in their 2018 paper "Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates"](https://arxiv.org/abs/1708.07120).
 
 
-## Configurable flexible model creation [NICK]
+## Configurable flexible model creation
 
-Blah
+Because of the frequent experimentation of different model architectures, a convenience method was created that accepts any number of arguments and builds a model based on the name and sequence of the `kwargs`.  This modularity along with using `py` scripts for the model allowed notebook code to be easier to maintain and reuse the code through different model evolutions.  An example of how a model could be created and the code can be found in [Appendix C. Simple Neural Network Investigation](#c-simple-neural-network-investigation).
 
 ## Model Saving, Loading, and Rollback
 
 When exploring different neural network architectures as well as choice of loss function and optimizer hyperparameters, there was a need for loading models which were trained in previous sessions, or to roll back current iterations to and earlier epoch when experiments failed.  Manually saving and loading files was tedius and prone to human errors, and a system was developed to automatically save the model, epoch and loss history, loss function, and optimizer whenever a new epoch is completed.  When the model performance was deemed not satisfactory, an automatic rollback to best version could be triggered. Manual loading to a previous state of the model was also supported by this system.  These enhancements allowed for quick iterative tuning of hyperparameters and also prevented loss of progress when the training process encountered errors.
-
-
 
 [Back to Top](#table-of-contents)
 
@@ -263,6 +253,8 @@ When exploring different neural network architectures as well as choice of loss 
 > * What did you l earn from doing Part B? What surprised you about your results? How could you extend your solution with more time/resources?
 > * What ethical i ssues could arise i n providing a solution to Part A, and how could you address them?
 > * What ethical i ssues could arise i n providing a solution to Part B, and how could you address them?
+
+It was learned that SGP4 algorithm is very accurate and its very challenging to build a model that is at par with what the scientific equations already produce.
 
 [Back to Top](#table-of-contents)
 
