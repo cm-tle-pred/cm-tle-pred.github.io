@@ -172,7 +172,7 @@ In perfect orbital conditions, `ARG_OF_PERICENTER`, `RA_OF_ASC_NODE`, `INCLINATI
 
 Since the random model and neighbor model scope varied quite considerably, their results were not directly comparable.  Despite this, some comparions could be made that show the random model was better at predicting values further from the reference epoch while the neighbor model was better at predicting values closer to the reference epoch.  This is no surprise since the former was not restricted to a 14-day window like the latter.
 
-The random pairing models, while showing signs that convergence, converged much less quickly than the neighbor pairing models.  During this time, it was established that the training loss necessary to compete with the SGP4 propagation model needed to be on an order of `1e-8` or smaller.  Both model types were changed so that separate models would be trained for each output feature.  The random pairing model resulted in significant gains on reducing the loss but not at the level of the `T` models.  For more details on the evaluation of the random pairing model's loss, see [Appendix E. Random Model Loss Evaluation](#e-random-model-loss-evaluation).
+The random pairing models, while showing signs that convergence, converged much less quickly than the neighbor pairing models.  During this time, it was established that the training loss necessary to compete with the SGP4 propagation model needed to be on an order of `1e-8` or smaller.  Both model types were changed so that separate models would be trained for each output feature.  The random pairing model resulted in significant gains on reducing the loss but not at the level of the neighbor models.  For more details on the evaluation of the random pairing model's loss, see [Appendix E. Random Model Loss Evaluation](#e-random-model-loss-evaluation).
 
 Because certain outputs were not expected to change very much, for example the `INCLINATION` and `ECCENTRICITY`, a dummy output was created by using the reference TLE features as the output features.  Comparing the MSE of the dummy to the models shows that the dummy is still performing better than both the random and neighbor pairing model.  [Appendix J. Mean-Square Error by Epoch Difference](#j-mean-square-error-by-epoch-difference) shows more detail on this dummy comparison for both model types.
 
@@ -448,7 +448,7 @@ Below is a table showing the optimum loss achieved at 25 epochs for each model e
 |4|ResNet28 (nonlinear regression)<br>width of 256<br>optimizer SGD|0.03276|19.44|
 |5|ResNet28 (nonlinear regression)<br>width of 128 (single output)<br>optimizer SGD<br>OneCycle scheduler to epoch 10<br>then switched to AdamW|5.176e-06|7.604e-07|
 
-<p align='center'><b>Table E1</b>  <code>N</code> variant model evolution</p>
+<p align='center'><b>Table E1</b>random pair variant model evolution</p>
 
 Within each model evolution, hyperparameter tuning took place resulting in various loss trails.
 
