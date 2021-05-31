@@ -412,15 +412,19 @@ class NNModelEx(nn.Module):
 For the satellite NORAD 10839, the Mean Motion and Right Ascension of the Ascending Node are starting to take shape.  This earlier model did not convert some cyclical features resulting in the sawtooth ground truths.  Later models converted these features to cyclical features and greatly improved their prediction.
 
 ![NORAD 10839 Ground Truth and Prediction Comparison](images/model_n1_norad_10839_shape.png)
+<p align='center'><b>Figure D1</b> NORAD 10839 Ground Truth and Prediction Comparison</p>
 
 The same can be seen in NORAD 27944.
 ![NORAD 27944 Ground Truth and Prediction Comparison](images/model_n1_norad_27944_shape.png)
+<p align='center'><b>Figure D2</b> NORAD 27944 Ground Truth and Prediction Comparison</p>
 
 When limiting the models prediction to 14 days and having a separate model for each output feature, the shape of the data is very well preserved as can be seen with NORAD 12701.
 ![NORAD 12701 Ground Truth and Prediction Comparison (full)](images/model_t5_norad_12701_shape_a.png)
+<p align='center'><b>Figure D3</b> NORAD 12701 Ground Truth and Prediction Comparison (full)</p>
 
 Zooming in on a 1-year period of the previous makes the error more observable.
 ![NORAD 12701 Ground Truth and Prediction Comparison (1 Year)](images/model_t5_norad_12701_shape_b.png)
+<p align='center'><b>Figure D4</b> NORAD 12701 Ground Truth and Prediction Comparison (1 Year)</p>
 
 [Back to Top](#table-of-contents)
 
@@ -438,7 +442,7 @@ Below is a table showing the optimum loss achieved at 25 epochs for each model e
 |4|ResNet28 (nonlinear regression)<br>width of 256<br>optimizer SGD|0.03276|19.44|
 |5|ResNet28 (nonlinear regression)<br>width of 128 (single output)<br>optimizer SGD<br>OneCycle scheduler to epoch 10<br>then switched to AdamW|5.176e-06|7.604e-07|
 
-<p align='center'><b>Table E1</b>random pair variant model evolution</p>
+<p align='center'><b>Table E1</b> random pair variant model evolution</p>
 
 Within each model evolution, hyperparameter tuning took place resulting in various loss trails.
 
@@ -471,12 +475,12 @@ Within each model evolution, hyperparameter tuning took place resulting in vario
 Below are the anomaly detection results with the DBSCAN models from selected satellites.
 
 ![24403](images/f_24403.png)
-<p align='center'><i>NORAD ID: 24403.  PEGASUS DEB (1994-029RG)</i></p>
+<p align='center'><b>Figure F1</b> <i>NORAD ID: 24403.  PEGASUS DEB (1994-029RG)</i></p>
 
 -------
 
 ![36682](images/f_36682.png)
-<p align='center'><i>NORAD ID: 36682.  FENGYUN 1C DEB (1999-025DZC)</i></p>
+<p align='center'><b>Figure F2</b> <i>NORAD ID: 36682.  FENGYUN 1C DEB (1999-025DZC)</i></p>
 
 [Back to Top](#table-of-contents)
 
@@ -523,6 +527,7 @@ Below is a table showing details of the features added to the dataset.  While al
 | `RA_OF_ASC_NODE_ADJUSTED` | Cumulative `RA_OF_ASC_NODE` from arbitary 0 | Derived from a series of `ARG_OF_PERICENTER`|  |
 | `REV_MEAN_ANOMALY_COMBINED` | Cumulative `MEAN_ANOMALY` from arbitary 0 | Derived from a series of `MEAN_ANOMALY` and `REV_AT_EPOCH` |  |
 
+<p align='center'><b>Table G1</b> Features included or added to dataset</p>
 
 [Back to Top](#table-of-contents)
 
@@ -532,9 +537,11 @@ Below is a table showing details of the features added to the dataset.  While al
 
 #### Generic
 ![Generic](images/model_generic.png)
+<p align='center'><b>Figure H1</b> Generic version of Neighboring Pair Model</p>
 
 #### Mean Anomaly
 ![Mean Anomaly](images/model_mean_anomaly.png)
+<p align='center'><b>Figure H2</b> Mean Anomaly version of Neighboring Pair Model</p>
 
 #### Hidden Layer Configuration (indicated in orange)
 
@@ -548,6 +555,8 @@ Below is a table showing details of the features added to the dataset.  While al
 | MEAN_ANOMALY | 6x60 fully connected layers, ReLU activation, Dropout (40%)<br /> |
 | BSTAR | 7x60 fully connected layers, ReLU activation, Dropout (50%)<br /> |
 
+<p align='center'><b>Table H1</b> Hidden layer layout</p>
+
 #### Model Performance and Configurations
 
 | Model | Optimizer (final parameter) | Loss Function | Holdout Loss |
@@ -560,6 +569,7 @@ Below is a table showing details of the features added to the dataset.  While al
 | MEAN_ANOMALY | AdamW (lr: 1e-07, weight_decay: 0.001) | Custom MAE (top 75%) | 2.5502161747681384e-05 |
 | BSTAR | AdamW (lr: 1e-08, weight_decay: 0.001) | MSE | 5.662784955617894e-06 |
 
+<p align='center'><b>Table H2</b> Model performance</p>
 
 [Back to Top](#table-of-contents)
 
@@ -601,10 +611,14 @@ In Figure J2, the x-axis ranges from `0` to `2`.  If a reference TLE epoch was `
 Satellites position is calculated by providing a TLE with a reference epoch and a target epoch into the SGP4 algorithm.  To create the following graphs, a *propagated positions*, *predicted positions*, and *ground truth positions* were calculated by applying SGP4 on the target epoch to the reference TLE, predicted TLE, and target TLE resprectively.  Each graph is the straight-line distance between either the *propagated postiions* (from X) or the *predicted positions* to the *ground truth positions*.
 
 ![XYZ Difference Random Model 1:1](images/xyz_diff_rand_n5.png)
-<p align='center'><b>Figure K1</b> XYZ Difference Random Model (1 model/output)</p>
+<p align='center'><b>Figure K1</b> XYZ Difference Random Pair Model (1 model/output)</p>
 
 ![XYZ Difference Random Model 1:N](images/xyz_diff_rand_n3.png)
-<p align='center'><b>Figure K2</b> XYZ Difference Random Model (1 model for all outputs)</p>
+<p align='center'><b>Figure K2</b> XYZ Difference Random Pair Model (1 model for all outputs)</p>
 
 ![XYZ Difference Neighbor Model (full)](images/xyz_diff_neigh_full.png)
-<p align='center'><b>Figure K3</b> XYZ Difference Neighbor Model</p>
+<p align='center'><b>Figure K3</b> XYZ Difference Neighbor Pair Model</p>
+
+The average lines on the Random Pair Model graphs are the averages on the lower half of the results because some TLEs at these epoch differences create massive errors that skew the average.
+
+[Back to Top](#table-of-contents)
